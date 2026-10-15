@@ -60,6 +60,7 @@ class PixivImage extends StatefulWidget {
 
   PixivImage(
     this.url, {
+    super.key,
     this.placeWidget,
     this.fade = true,
     this.fit,

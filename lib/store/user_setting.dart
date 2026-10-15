@@ -92,6 +92,20 @@ abstract class _UserSetting with Store {
   static const String USE_DYNAMIC_COLOR_KEY = "use_dynamic_color";
   static const String SEED_COLOR_KEY = "seed_color";
   static const String SWIPE_CHANGE_ARTWORK_KEY = "swipe_change_artwork";
+  static const String TAP_ZONE_MODE_KEY = "tap_zone_mode";
+  static const String TAP_ZONE_MIRROR_KEY = "tap_zone_mirror";
+  static const String TAP_ZONE_INVERT_KEY = "tap_zone_invert";
+  static const String TAP_ZONE_OVERLAY_KEY = "tap_zone_overlay";
+  static const String READ_RIGHT_TO_LEFT_KEY = "read_right_to_left";
+  static const String SHOW_THUMBNAIL_BAR_KEY = "show_thumbnail_bar";
+  static const String SHOW_PAGE_INDICATOR_KEY = "show_page_indicator";
+  static const String SHOW_PROGRESS_SLIDER_KEY = "show_progress_slider";
+  static const String THUMBNAIL_GRID_COLUMNS_KEY = "thumbnail_grid_columns";
+  static const String THUMBNAIL_STRIP_RTL_KEY = "thumbnail_strip_rtl";
+  static const String THUMBNAIL_STRIP_SIZE_KEY = "thumbnail_strip_size";
+  static const String THUMBNAIL_SCRUB_HAPTIC_KEY = "thumbnail_scrub_haptic";
+  static const String PREFETCH_COUNT_KEY = "prefetch_count";
+  static const String THUMBNAIL_SHAPE_KEY = "thumbnail_shape";
   static const String USE_SAUNCE_NAO_WEBVIEW = "use_sauce_nao_webview";
   static const String FEED_AI_BADGE_KEY = "feed_ai_badge";
   static const String IGNORE_UPDATE_VERSION_KEY = "ignore_update_version";
@@ -203,6 +217,45 @@ abstract class _UserSetting with Store {
   int themeInitState = 0;
   @observable
   bool swipeChangeArtwork = false;
+  /// 多图查看器的点击分区布局，取值见 TapZoneMode。
+  @observable
+  int tapZoneMode = 0;
+  /// 点击分区的反转方式，取值见 TapZoneInvert。
+  @observable
+  int tapZoneInvert = 0;
+  /// 进入图片查看器时是否短暂显示分区提示层。
+  @observable
+  bool showTapZoneOverlay = true;
+  /// 阅读方向：true 表示从右到左，第 1 张在最右侧。
+  @observable
+  bool readRightToLeft = true;
+  /// 是否在查看器底部显示缩略图条。
+  @observable
+  bool showThumbnailBar = true;
+  /// 是否在查看器底部常显小号页码（如 1/10）。
+  @observable
+  bool showPageIndicator = true;
+  /// 是否显示可拖动的翻页进度条。
+  @observable
+  bool showProgressSlider = true;
+  /// 全局缩略图每行显示几张。
+  @observable
+  int thumbnailGridColumns = 5;
+  /// 底部横条缩略图是否从右到左排列（与阅读方向独立）。
+  @observable
+  bool thumbnailStripRightToLeft = true;
+  /// 横条缩略图的宽度。
+  @observable
+  double thumbnailStripSize = 48;
+  /// 滑动横条切换页面时是否震动。
+  @observable
+  bool thumbnailScrubHaptic = true;
+  /// 进入看图页时提前加载后面几张（只加载大图）。0 表示关闭。
+  @observable
+  int prefetchCount = 5;
+  /// 缩略图形状：0 = 统一大小裁切，1 = 按原图比例完整显示。
+  @observable
+  int thumbnailShape = 0;
   @observable
   bool useSaunceNaoWebview = false;
   @observable
@@ -391,6 +444,97 @@ abstract class _UserSetting with Store {
   setSwipeChangeArtwork(bool v) async {
     await prefs.setBool(SWIPE_CHANGE_ARTWORK_KEY, v);
     swipeChangeArtwork = v;
+  }
+
+  @action
+  setTapZoneMode(int v) async {
+    await prefs.setInt(TAP_ZONE_MODE_KEY, v);
+    tapZoneMode = v;
+  }
+
+  @action
+  setTapZoneInvert(int v) async {
+    await prefs.setInt(TAP_ZONE_INVERT_KEY, v);
+    tapZoneInvert = v;
+  }
+
+  /// 早期版本只有一个"左右镜像"开关，这里把它迁移成反转枚举。
+  ///
+  /// 取值含义与 TapZoneInvert 的下标一致：0 = 关闭，1 = 水平。
+  void mirrorTapZoneMigration() {
+    if (prefs.containsKey(TAP_ZONE_INVERT_KEY)) {
+      tapZoneInvert = prefs.getInt(TAP_ZONE_INVERT_KEY) ?? 0;
+      return;
+    }
+    final legacyMirror = prefs.getBool(TAP_ZONE_MIRROR_KEY) ?? false;
+    tapZoneInvert = legacyMirror ? 1 : 0;
+    prefs.remove(TAP_ZONE_MIRROR_KEY);
+  }
+
+  @action
+  setShowTapZoneOverlay(bool v) async {
+    await prefs.setBool(TAP_ZONE_OVERLAY_KEY, v);
+    showTapZoneOverlay = v;
+  }
+
+  @action
+  setReadRightToLeft(bool v) async {
+    await prefs.setBool(READ_RIGHT_TO_LEFT_KEY, v);
+    readRightToLeft = v;
+  }
+
+  @action
+  setShowThumbnailBar(bool v) async {
+    await prefs.setBool(SHOW_THUMBNAIL_BAR_KEY, v);
+    showThumbnailBar = v;
+  }
+
+  @action
+  setShowPageIndicator(bool v) async {
+    await prefs.setBool(SHOW_PAGE_INDICATOR_KEY, v);
+    showPageIndicator = v;
+  }
+
+  @action
+  setShowProgressSlider(bool v) async {
+    await prefs.setBool(SHOW_PROGRESS_SLIDER_KEY, v);
+    showProgressSlider = v;
+  }
+
+  @action
+  setThumbnailGridColumns(int v) async {
+    await prefs.setInt(THUMBNAIL_GRID_COLUMNS_KEY, v);
+    thumbnailGridColumns = v;
+  }
+
+  @action
+  setThumbnailStripRightToLeft(bool v) async {
+    await prefs.setBool(THUMBNAIL_STRIP_RTL_KEY, v);
+    thumbnailStripRightToLeft = v;
+  }
+
+  @action
+  setThumbnailStripSize(double v) async {
+    await prefs.setDouble(THUMBNAIL_STRIP_SIZE_KEY, v);
+    thumbnailStripSize = v;
+  }
+
+  @action
+  setThumbnailScrubHaptic(bool v) async {
+    await prefs.setBool(THUMBNAIL_SCRUB_HAPTIC_KEY, v);
+    thumbnailScrubHaptic = v;
+  }
+
+  @action
+  setPrefetchCount(int v) async {
+    await prefs.setInt(PREFETCH_COUNT_KEY, v);
+    prefetchCount = v;
+  }
+
+  @action
+  setThumbnailShape(int v) async {
+    await prefs.setInt(THUMBNAIL_SHAPE_KEY, v);
+    thumbnailShape = v;
   }
 
   @action
@@ -588,6 +732,25 @@ abstract class _UserSetting with Store {
     ignoreUpdateVersion = prefs.getString(IGNORE_UPDATE_VERSION_KEY);
     illustDetailSaveSkipLongPress =
         prefs.getBool(ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY) ?? false;
+    tapZoneMode = prefs.getInt(TAP_ZONE_MODE_KEY) ?? 0;
+    mirrorTapZoneMigration();
+    showTapZoneOverlay = prefs.getBool(TAP_ZONE_OVERLAY_KEY) ?? true;
+    readRightToLeft = prefs.getBool(READ_RIGHT_TO_LEFT_KEY) ?? true;
+    showThumbnailBar = prefs.getBool(SHOW_THUMBNAIL_BAR_KEY) ?? true;
+    showPageIndicator = prefs.getBool(SHOW_PAGE_INDICATOR_KEY) ?? true;
+    showProgressSlider = prefs.getBool(SHOW_PROGRESS_SLIDER_KEY) ?? true;
+    final gridColumns = prefs.getInt(THUMBNAIL_GRID_COLUMNS_KEY) ?? 5;
+    // 允许 2~8 列。
+    thumbnailGridColumns = gridColumns < 2 || gridColumns > 8 ? 5 : gridColumns;
+    thumbnailStripRightToLeft =
+        prefs.getBool(THUMBNAIL_STRIP_RTL_KEY) ?? true;
+    final stripSize = prefs.getDouble(THUMBNAIL_STRIP_SIZE_KEY) ?? 48;
+    thumbnailStripSize = stripSize < 24 || stripSize > 200 ? 48 : stripSize;
+    thumbnailScrubHaptic = prefs.getBool(THUMBNAIL_SCRUB_HAPTIC_KEY) ?? true;
+    final prefetch = prefs.getInt(PREFETCH_COUNT_KEY) ?? 5;
+    prefetchCount = prefetch < 0 || prefetch > 20 ? 5 : prefetch;
+    final shape = prefs.getInt(THUMBNAIL_SHAPE_KEY) ?? 0;
+    thumbnailShape = shape < 0 || shape > 1 ? 0 : shape;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);

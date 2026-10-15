@@ -31,6 +31,9 @@ import 'package:pixez/page/about/languages.dart';
 import 'package:pixez/page/hello/setting/copy_text_page.dart';
 import 'package:pixez/page/hello/setting/setting_cross_adapter_page.dart';
 import 'package:pixez/page/network/network_page.dart';
+import 'package:pixez/page/zoom/page_thumbnail_bar.dart';
+import 'package:pixez/page/zoom/tap_zone.dart';
+import 'package:pixez/page/zoom/tap_zone_overlay.dart';
 import 'package:pixez/page/platform/platform_page.dart';
 import 'package:pixez/store/welcome_page_type.dart';
 import 'package:pixez/utils/haptic_util.dart';
@@ -44,6 +47,8 @@ class SettingQualityPage extends StatefulWidget {
 class _SettingQualityPageState extends State<SettingQualityPage>
     with TickerProviderStateMixin {
   final _typeList = ["recom", "rank", "follow_illust"];
+  static const List<int> _gridColumnOptions = [2, 3, 4, 5, 6, 7, 8];
+  static const List<int> _prefetchOptions = [0, 3, 4, 5, 6, 7, 8, 9, 10];
   int _widgetTypeIndex = -1;
 
   @override
@@ -73,6 +78,16 @@ class _SettingQualityPageState extends State<SettingQualityPage>
     try {
       await AppWidgetPlugin.setRecommendType(type);
     } catch (e) {}
+  }
+
+  int _prefetchIndex() {
+    final i = _prefetchOptions.indexOf(userSetting.prefetchCount);
+    return i < 0 ? _prefetchOptions.indexOf(5) : i;
+  }
+
+  int _stripSizeIndex() {
+    final i = kThumbnailSizeOptions.indexOf(userSetting.thumbnailStripSize.round());
+    return i < 0 ? kThumbnailSizeOptions.indexOf(48) : i;
   }
 
   String _welcomePageLabel(BuildContext context, WelcomePageType type) {
@@ -192,6 +207,20 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     items: [I18n.of(context).large, I18n.of(context).source],
                     onChange: (index) {
                       userSetting.change(index);
+                    },
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.downloading),
+                  title: Text(I18n.of(context).prefetch_count),
+                  subtitle: Text(I18n.of(context).prefetch_count_desc),
+                  trailing: SettingSelectMenu(
+                    index: _prefetchIndex(),
+                    items: _prefetchOptions.map((e) => '$e').toList(),
+                    onChange: (index) async {
+                      HapticUtil.light();
+                      await userSetting
+                          .setPrefetchCount(_prefetchOptions[index]);
                     },
                   ),
                 ),
@@ -336,6 +365,150 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   onChanged: (value) async {
                     HapticUtil.light();
                     userSetting.setSwipeChangeArtwork(value);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.touch_app_outlined),
+                  title: Text(I18n.of(context).tap_zone_mode),
+                  subtitle: Text(I18n.of(context).tap_zone_mode_desc),
+                  trailing: SettingSelectMenu(
+                    index: userSetting.tapZoneMode,
+                    // 直接按枚举顺序生成，保证下标和 TapZoneMode 一一对应。
+                    items: TapZoneMode.values
+                        .map((mode) => tapZoneModeLabel(context, mode))
+                        .toList(),
+                    onChange: (index) async {
+                      HapticUtil.light();
+                      await userSetting.setTapZoneMode(index);
+                    },
+                  ),
+                ),
+                // 与 Mihon 一致：选到"禁用"时不显示反转设置。
+                if (userSetting.tapZoneMode != TapZoneMode.disabled.value)
+                  ListTile(
+                    leading: const Icon(Icons.swap_horiz),
+                    title: Text(I18n.of(context).tap_zone_invert),
+                    subtitle: Text(I18n.of(context).tap_zone_invert_desc),
+                    trailing: SettingSelectMenu(
+                      index: userSetting.tapZoneInvert,
+                      items: TapZoneInvert.values
+                          .map((invert) => tapZoneInvertLabel(context, invert))
+                          .toList(),
+                      onChange: (index) async {
+                        HapticUtil.light();
+                        await userSetting.setTapZoneInvert(index);
+                      },
+                    ),
+                  ),
+                SwitchListTile(
+                  value: userSetting.showTapZoneOverlay,
+                  title: Text(I18n.of(context).tap_zone_overlay),
+                  subtitle: Text(I18n.of(context).tap_zone_overlay_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setShowTapZoneOverlay(value);
+                  },
+                ),
+                SwitchListTile(
+                  value: userSetting.showThumbnailBar,
+                  title: Text(I18n.of(context).show_thumbnail_bar),
+                  subtitle: Text(I18n.of(context).show_thumbnail_bar_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setShowThumbnailBar(value);
+                  },
+                ),
+                SwitchListTile(
+                  value: userSetting.showProgressSlider,
+                  title: Text(I18n.of(context).show_progress_slider),
+                  subtitle: Text(I18n.of(context).show_progress_slider_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setShowProgressSlider(value);
+                  },
+                ),
+                SwitchListTile(
+                  value: userSetting.showPageIndicator,
+                  title: Text(I18n.of(context).show_page_indicator),
+                  subtitle: Text(I18n.of(context).show_page_indicator_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setShowPageIndicator(value);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.grid_view),
+                  title: Text(I18n.of(context).thumbnail_grid_columns),
+                  subtitle: Text(I18n.of(context).thumbnail_grid_columns_desc),
+                  trailing: SettingSelectMenu(
+                    index: _gridColumnOptions
+                        .indexOf(userSetting.thumbnailGridColumns),
+                    items: _gridColumnOptions
+                        .map((e) => '$e')
+                        .toList(),
+                    onChange: (index) async {
+                      HapticUtil.light();
+                      await userSetting
+                          .setThumbnailGridColumns(_gridColumnOptions[index]);
+                    },
+                  ),
+                ),
+                SwitchListTile(
+                  value: userSetting.thumbnailScrubHaptic,
+                  title: Text(I18n.of(context).thumbnail_scrub_haptic),
+                  subtitle: Text(I18n.of(context).thumbnail_scrub_haptic_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setThumbnailScrubHaptic(value);
+                  },
+                ),
+                SwitchListTile(
+                  value: userSetting.thumbnailStripRightToLeft,
+                  title: Text(I18n.of(context).thumbnail_strip_rtl),
+                  subtitle: Text(I18n.of(context).thumbnail_strip_rtl_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setThumbnailStripRightToLeft(value);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.crop_free),
+                  title: Text(I18n.of(context).thumbnail_shape),
+                  subtitle: Text(I18n.of(context).thumbnail_shape_desc),
+                  trailing: SettingSelectMenu(
+                    index: userSetting.thumbnailShape.clamp(0, 1),
+                    items: [
+                      I18n.of(context).thumbnail_shape_uniform,
+                      I18n.of(context).thumbnail_shape_original,
+                    ],
+                    onChange: (index) async {
+                      HapticUtil.light();
+                      await userSetting.setThumbnailShape(index);
+                    },
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_size_select_small),
+                  title: Text(I18n.of(context).thumbnail_strip_size),
+                  subtitle: Text(I18n.of(context).thumbnail_strip_size_desc),
+                  trailing: SettingSelectMenu(
+                    index: _stripSizeIndex(),
+                    items: kThumbnailSizeOptions.map((e) => '$e').toList(),
+                    onChange: (index) async {
+                      HapticUtil.light();
+                      await userSetting.setThumbnailStripSize(
+                        kThumbnailSizeOptions[index].toDouble(),
+                      );
+                    },
+                  ),
+                ),
+                SwitchListTile(
+                  value: userSetting.readRightToLeft,
+                  title: Text(I18n.of(context).read_right_to_left),
+                  subtitle: Text(I18n.of(context).read_right_to_left_desc),
+                  onChanged: (value) async {
+                    HapticUtil.light();
+                    await userSetting.setReadRightToLeft(value);
                   },
                 ),
                 if (Platform.isAndroid || Platform.isIOS)

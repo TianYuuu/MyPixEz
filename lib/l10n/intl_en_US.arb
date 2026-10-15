@@ -7,6 +7,9 @@
   "all": "All",
   "ugoira_only": "Only Ugoira",
   "ugoira_none": "No Ugoira",
+  "page_count_any": "Any",
+  "filter_no_result": "No results match the current filter",
+  "load_more": "Load more",
   "already_in_query": "Already in queue",
   "already_saved": "Already saved",
   "android_special_setting": "Android-specific Settings",
@@ -290,6 +293,65 @@
   "photo_picker": "Photo picker",
   "photo_picker_subtitle": "Use new system-level image selector",
   "swipe_to_switch_artworks": "Swipe to switch artworks",
+  "tap_zone_mode": "Tap zones",
+  "tap_zone_mode_desc": "Tap the left/right area of the image viewer to turn pages, tap the center to toggle the bottom bar",
+  "tap_zone_l_shape": "L shaped",
+  "tap_zone_kindlish": "Kindle-ish",
+  "tap_zone_edge": "Edge",
+  "tap_zone_right_and_left": "Right and Left",
+  "tap_zone_disabled": "Disabled",
+  "tap_zone_invert": "Invert tap zones",
+  "tap_zone_invert_desc": "Flip the zones the way Mihon does: horizontal swaps left/right, vertical swaps top/bottom, both rotates 180 degrees",
+  "tap_zone_invert_none": "None",
+  "tap_zone_invert_horizontal": "Horizontal",
+  "tap_zone_invert_vertical": "Vertical",
+  "tap_zone_invert_both": "Both",
+  "tap_zone_overlay": "Show tap zone hint on open",
+  "tap_zone_overlay_desc": "Briefly show the current tap zone layout when opening an image, fades out after about 2 seconds",
+  "read_right_to_left": "Right-to-left reading",
+  "read_right_to_left_desc": "Page 1 sits on the right; pages 2, 3 ... go leftward",
+  "show_thumbnail_bar": "Show thumbnail bar",
+  "show_thumbnail_bar_desc": "Tap the center of the image to reveal a thumbnail bar for quick page jumps",
+  "show_page_indicator": "Show small page number",
+  "show_page_indicator_desc": "Keep a tiny \"page / total\" label at the bottom of the image",
+  "show_progress_slider": "Show page slider",
+  "show_progress_slider_desc": "A draggable slider at the bottom to jump straight to a page",
+  "thumbnail_grid_columns": "Thumbnail grid columns",
+  "thumbnail_grid_columns_desc": "How many thumbnails per row after swiping the strip up",
+  "thumbnail_strip_rtl": "Thumbnail strip right-to-left",
+  "thumbnail_strip_rtl_desc": "Turn off for left-to-right; independent of the reading direction",
+  "thumbnail_strip_size": "Thumbnail strip size",
+  "thumbnail_strip_size_desc": "Width of each thumbnail in the strip; larger is clearer but covers more of the image",
+  "prefetch_count": "Prefetch pages",
+  "prefetch_count_desc": "Preload the next few pages on open, large version only (never the original) to save data. While scrolling the thumbnail stands in, then the final quality loads once you settle. Set to 0 to disable",
+  "thumbnail_shape": "Thumbnail shape",
+  "thumbnail_shape_desc": "Affects the expanded full-screen grid only: uniform crops long pages, original ratio shows landscape and portrait pages in full. The bottom strip always fills its cell",
+  "thumbnail_shape_uniform": "Uniform",
+  "thumbnail_shape_original": "Original ratio",
+  "download_original_toast": "Started downloading page {index} (original)",
+  "@download_original_toast": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "thumbnail_scrub_haptic": "Vibrate when scrubbing pages",
+  "thumbnail_scrub_haptic_desc": "Give a light haptic tick when scrolling the strip changes the page",
+  "thumbnail_grid_title": "All pages",
+  "total_pages_count": "{count} pages",
+  "@total_pages_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tap_zone_overlay_title": "Tap zones",
+  "tap_zone_action_prev": "Previous",
+  "tap_zone_action_next": "Next",
+  "tap_zone_action_menu": "Toggle UI",
+  "tap_zone_action_none": "No action",
   "view_the_latest": "View the latest",
   "automatically_download_when_bookmarking": "Automatically download when bookmarking",
   "automatically_bookmark_when_downloading": "Automatically bookmark when downloading",
@@ -359,5 +421,10 @@
   "date_preset_1month": "1 month",
   "date_preset_6months": "6 months",
   "date_preset_1year": "1 year",
-  "date_preset_custom": "Custom range"
+  "date_preset_custom": "Custom range",
+  "jump_to_author": "Jump to author / description",
+  "jump_to_top": "Back to top",
+  "page_count_range": "Pages",
+  "view_count_range": "Views",
+  "bookmark_count_range": "Bookmarks"
 }

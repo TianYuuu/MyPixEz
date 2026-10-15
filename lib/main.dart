@@ -219,7 +219,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       );
                     },
                   ),
-                  title: 'PixEz',
+                  title: 'MyPixez',
                   builder: (context, child) {
                     if (Platform.isIOS)
                       child = _buildMaskBuilder(context, child);

@@ -7,6 +7,9 @@
   "all": "全部",
   "ugoira_only": "仅动图",
   "ugoira_none": "不含动图",
+  "page_count_any": "不限",
+  "filter_no_result": "当前筛选条件下暂时没有结果",
+  "load_more": "加载更多",
   "already_in_query": "已在列队",
   "already_saved": "已存在",
   "android_special_setting": "安卓设定",
@@ -290,6 +293,65 @@
   "photo_picker": "图片选择器",
   "photo_picker_subtitle": "使用新式图片选择器",
   "swipe_to_switch_artworks": "横向滑动切换作品",
+  "tap_zone_mode": "点击分区翻页",
+  "tap_zone_mode_desc": "在图片查看页点击左右区域切换上一张/下一张，点击中间开关底栏",
+  "tap_zone_l_shape": "L 型",
+  "tap_zone_kindlish": "Kindle 型",
+  "tap_zone_edge": "边缘",
+  "tap_zone_right_and_left": "左右",
+  "tap_zone_disabled": "禁用",
+  "tap_zone_invert": "反转点按区域",
+  "tap_zone_invert_desc": "按 Mihon 的规则翻转分区：水平＝左右对调，垂直＝上下对调，双向＝旋转 180 度",
+  "tap_zone_invert_none": "关闭",
+  "tap_zone_invert_horizontal": "水平",
+  "tap_zone_invert_vertical": "垂直",
+  "tap_zone_invert_both": "双向",
+  "tap_zone_overlay": "进入时显示分区提示",
+  "tap_zone_overlay_desc": "打开图片时短暂显示当前分区布局，约 2 秒后自动淡出",
+  "read_right_to_left": "从右到左阅读",
+  "read_right_to_left_desc": "第 1 张放在最右侧，向左依次是第 2、3 张",
+  "show_thumbnail_bar": "显示缩略图条",
+  "show_thumbnail_bar_desc": "点一下图片中间，底部浮出缩略图条，可快速跳到某一页",
+  "show_page_indicator": "显示小号页码",
+  "show_page_indicator_desc": "在图片底部常显一个很小的「第几页/共几页」",
+  "show_progress_slider": "显示翻页进度条",
+  "show_progress_slider_desc": "底部可拖动的进度条，直接拉到想看的页",
+  "thumbnail_grid_columns": "全局缩略图列数",
+  "thumbnail_grid_columns_desc": "上滑缩略图条展开后，每行显示几张",
+  "thumbnail_strip_rtl": "横条缩略图从右到左",
+  "thumbnail_strip_rtl_desc": "关闭则变成从左到右，与阅读方向无关",
+  "thumbnail_strip_size": "横条缩略图大小",
+  "thumbnail_strip_size_desc": "横条里每张缩略图的宽度，调大更清楚但会多挡一点图",
+  "prefetch_count": "预加载张数",
+  "prefetch_count_desc": "进入看图页时提前加载后面几张。只加载大图、不加载原图，省流量；滑动途中先用缩略图顶上，停稳后再加载最终画质。设为 0 关闭",
+  "thumbnail_shape": "缩略图形状",
+  "thumbnail_shape_desc": "只影响展开的全屏缩略图：统一大小会把长图裁成一块，按原图比例能完整看到横图竖图。底部横条始终铺满格子",
+  "thumbnail_shape_uniform": "统一大小",
+  "thumbnail_shape_original": "按原图比例",
+  "download_original_toast": "已开始下载第 {index} 张原图",
+  "@download_original_toast": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "thumbnail_scrub_haptic": "滑动切页时震动",
+  "thumbnail_scrub_haptic_desc": "滑动横条让另一张居中并切页时给一次轻微震动",
+  "thumbnail_grid_title": "全部页面",
+  "total_pages_count": "共 {count} 页",
+  "@total_pages_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tap_zone_overlay_title": "点击分区",
+  "tap_zone_action_prev": "上一张",
+  "tap_zone_action_next": "下一张",
+  "tap_zone_action_menu": "开关界面",
+  "tap_zone_action_none": "不响应",
   "view_the_latest": "查看最新一话",
   "automatically_download_when_bookmarking": "收藏时自动下载",
   "automatically_bookmark_when_downloading": "下载时自动收藏",
@@ -359,5 +421,10 @@
   "date_preset_1month": "1个月",
   "date_preset_6months": "6个月",
   "date_preset_1year": "1年",
-  "date_preset_custom": "指定期间"
+  "date_preset_custom": "指定期间",
+  "jump_to_author": "定位到作者/介绍",
+  "jump_to_top": "回到顶部",
+  "page_count_range": "页数",
+  "view_count_range": "观看数",
+  "bookmark_count_range": "点赞数"
 }

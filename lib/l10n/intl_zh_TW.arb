@@ -7,6 +7,9 @@
   "all": "全部",
   "ugoira_only": "僅動圖",
   "ugoira_none": "不含動圖",
+  "page_count_any": "不限",
+  "filter_no_result": "目前篩選條件下暫時沒有結果",
+  "load_more": "載入更多",
   "already_in_query": "已位於佇列中",
   "already_saved": "已存在",
   "android_special_setting": "Android 平台專有設定",
@@ -290,6 +293,65 @@
   "photo_picker": "圖片選擇器",
   "photo_picker_subtitle": "使用新版圖片選擇器",
   "swipe_to_switch_artworks": "橫向滑動切換作品",
+  "tap_zone_mode": "點擊分區翻頁",
+  "tap_zone_mode_desc": "在圖片檢視頁點擊左右區域切換上一張/下一張，點擊中間開關底欄",
+  "tap_zone_l_shape": "L 型",
+  "tap_zone_kindlish": "Kindle 型",
+  "tap_zone_edge": "邊緣",
+  "tap_zone_right_and_left": "左右",
+  "tap_zone_disabled": "停用",
+  "tap_zone_invert": "反轉點按區域",
+  "tap_zone_invert_desc": "依 Mihon 的規則翻轉分區：水平＝左右對調，垂直＝上下對調，雙向＝旋轉 180 度",
+  "tap_zone_invert_none": "關閉",
+  "tap_zone_invert_horizontal": "水平",
+  "tap_zone_invert_vertical": "垂直",
+  "tap_zone_invert_both": "雙向",
+  "tap_zone_overlay": "進入時顯示分區提示",
+  "tap_zone_overlay_desc": "開啟圖片時短暫顯示目前分區配置，約 2 秒後自動淡出",
+  "read_right_to_left": "從右到左閱讀",
+  "read_right_to_left_desc": "第 1 張放在最右側，向左依次是第 2、3 張",
+  "show_thumbnail_bar": "顯示縮圖列",
+  "show_thumbnail_bar_desc": "點一下圖片中間，底部浮出縮圖列，可快速跳到某一頁",
+  "show_page_indicator": "顯示小號頁碼",
+  "show_page_indicator_desc": "在圖片底部常顯一個很小的「第幾頁/共幾頁」",
+  "show_progress_slider": "顯示翻頁進度條",
+  "show_progress_slider_desc": "底部可拖動的進度條，直接拉到想看的頁",
+  "thumbnail_grid_columns": "全域縮圖列數",
+  "thumbnail_grid_columns_desc": "上滑縮圖列展開後，每列顯示幾張",
+  "thumbnail_strip_rtl": "橫條縮圖從右到左",
+  "thumbnail_strip_rtl_desc": "關閉則變成從左到右，與閱讀方向無關",
+  "thumbnail_strip_size": "橫條縮圖大小",
+  "thumbnail_strip_size_desc": "橫條裡每張縮圖的寬度，調大更清楚但會多擋一點圖",
+  "prefetch_count": "預載張數",
+  "prefetch_count_desc": "進入看圖頁時提前載入後面幾張。只載入大圖、不載入原圖，省流量；滑動途中先用縮圖頂上，停穩後再載入最終畫質。設為 0 關閉",
+  "thumbnail_shape": "縮圖形狀",
+  "thumbnail_shape_desc": "只影響展開的全螢幕縮圖：統一大小的會把長圖裁成一塊，按原圖比例能完整看到橫圖豎圖。底部橫條始終鋪滿格子",
+  "thumbnail_shape_uniform": "統一大小",
+  "thumbnail_shape_original": "按原圖比例",
+  "download_original_toast": "已開始下載第 {index} 張原圖",
+  "@download_original_toast": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "thumbnail_scrub_haptic": "滑動切頁時震動",
+  "thumbnail_scrub_haptic_desc": "滑動橫條讓另一張居中並切頁時給一次輕微震動",
+  "thumbnail_grid_title": "全部頁面",
+  "total_pages_count": "共 {count} 頁",
+  "@total_pages_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tap_zone_overlay_title": "點擊分區",
+  "tap_zone_action_prev": "上一張",
+  "tap_zone_action_next": "下一張",
+  "tap_zone_action_menu": "開關介面",
+  "tap_zone_action_none": "不回應",
   "view_the_latest": "觀看最新一話",
   "automatically_download_when_bookmarking": "收藏時自動下載",
   "automatically_bookmark_when_downloading": "下載時自動收藏",
@@ -359,5 +421,10 @@
   "date_preset_1month": "1個月",
   "date_preset_6months": "6個月",
   "date_preset_1year": "1年",
-  "date_preset_custom": "指定期間"
+  "date_preset_custom": "指定期間",
+  "jump_to_author": "定位到作者/介紹",
+  "jump_to_top": "回到頂部",
+  "page_count_range": "頁數",
+  "view_count_range": "觀看數",
+  "bookmark_count_range": "按讚數"
 }

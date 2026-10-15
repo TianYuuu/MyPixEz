@@ -25,6 +25,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
 import 'package:pixez/component/detail_jump_button.dart';
+import 'package:pixez/component/detail_side_buttons.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -207,6 +208,22 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     super.dispose();
   }
 
+  /// 左下角的两个悬浮按钮，和右下角的收藏按钮左右对称。
+  ///
+  /// bottom 用 16 + 安全区，和 FloatingActionButtonLocation.endFloat 的算法
+  /// 一致，这样左右两边视觉上才在同一高度。
+  Widget _buildSideButtons() {
+    return Positioned(
+      left: 16,
+      bottom: 16 + MediaQuery.of(context).padding.bottom,
+      child: DetailSideButtons(
+        anchorKey: _detailKey,
+        scrollController: _scrollController,
+        id: widget.id,
+      ),
+    );
+  }
+
   Widget _buildAppbar() {
     return Column(
       children: [
@@ -338,6 +355,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                   children: [
                     _buildContent(context, _illustStore.illusts),
                     _buildAppbar(),
+                    _buildSideButtons(),
                   ],
                 ),
               );

@@ -24,6 +24,8 @@ import 'package:pixez/lighting/lighting_page.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/page/search/count_filter.dart';
+import 'package:pixez/page/search/page_count_filter.dart';
 import 'package:pixez/page/search/result_illust_store.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
 
@@ -73,6 +75,14 @@ class _ResultIllustListState extends State<ResultIllustList> {
   String selectSort = "date_desc";
   int searchAIType = 0;
   UgoiraFilter ugoiraFilter = UgoiraFilter.all;
+  /// 页数范围筛选（纯客户端，pixiv 搜索接口没有页数参数）。
+  PageCountRange _pageRange = PageCountRange.any;
+
+  /// 观看数筛选。纯本地过滤，接口没有这个参数。
+  CountRange _viewRange = CountRange.any;
+
+  /// 点赞数筛选。和页数筛选同一套机制，纯本地过滤。
+  CountRange _bookmarkRange = CountRange.any;
   int selectStarNum = 0;
   List<int> starNum = [
     0,
@@ -124,6 +134,12 @@ class _ResultIllustListState extends State<ResultIllustList> {
     final searchTargetKey = '${prefix}_search_target';
     final searchSortKey = '${prefix}_search_sort';
     final ugoiraFilterKey = '${prefix}_ugoira_filter';
+    final pageMinKey = '${prefix}_page_min';
+    final pageMaxKey = '${prefix}_page_max';
+    final viewMinKey = '${prefix}_view_min';
+    final viewMaxKey = '${prefix}_view_max';
+    final bookmarkMinKey = '${prefix}_bookmark_min';
+    final bookmarkMaxKey = '${prefix}_bookmark_max';
     final recordRememberCurrentSelectionKey =
         'illust_search_result_record_remember_current_selection';
     recordRememberCurrentSelection =
@@ -136,6 +152,18 @@ class _ResultIllustListState extends State<ResultIllustList> {
           searchAIType = Prefer.getInt(searchAIKey) ?? 0;
           ugoiraFilter = UgoiraFilter
               .values[Prefer.getInt(ugoiraFilterKey) ?? UgoiraFilter.all.index];
+          _pageRange = PageCountRange(
+            min: Prefer.getInt(pageMinKey) ?? 0,
+            max: Prefer.getInt(pageMaxKey) ?? 0,
+          ).normalized();
+          _viewRange = CountRange(
+            min: Prefer.getInt(viewMinKey) ?? 0,
+            max: Prefer.getInt(viewMaxKey) ?? 0,
+          ).normalized();
+          _bookmarkRange = CountRange(
+            min: Prefer.getInt(bookmarkMinKey) ?? 0,
+            max: Prefer.getInt(bookmarkMaxKey) ?? 0,
+          ).normalized();
         });
       }
     }
@@ -151,6 +179,18 @@ class _ResultIllustListState extends State<ResultIllustList> {
     final searchTargetKey = '${prefix}_search_target';
     final searchSortKey = '${prefix}_search_sort';
     final ugoiraFilterKey = '${prefix}_ugoira_filter';
+    final pageMinKey = '${prefix}_page_min';
+    final pageMaxKey = '${prefix}_page_max';
+    final viewMinKey = '${prefix}_view_min';
+    final viewMaxKey = '${prefix}_view_max';
+    final bookmarkMinKey = '${prefix}_bookmark_min';
+    final bookmarkMaxKey = '${prefix}_bookmark_max';
+    await Prefer.setInt(viewMinKey, _viewRange.min);
+    await Prefer.setInt(viewMaxKey, _viewRange.max);
+    await Prefer.setInt(bookmarkMinKey, _bookmarkRange.min);
+    await Prefer.setInt(bookmarkMaxKey, _bookmarkRange.max);
+    await Prefer.setInt(pageMinKey, _pageRange.min);
+    await Prefer.setInt(pageMaxKey, _pageRange.max);
     await Prefer.setString(searchTargetKey, searchTarget);
     await Prefer.setString(searchSortKey, selectSort);
     await Prefer.setInt(searchAIKey, searchAIType);
@@ -228,11 +268,15 @@ class _ResultIllustListState extends State<ResultIllustList> {
                       source: futureGet,
                       scrollController: _scrollController,
                       filter: (illust) {
-                        return switch (ugoiraFilter) {
+                        final ugoiraOk = switch (ugoiraFilter) {
                           UgoiraFilter.all => true,
                           UgoiraFilter.onlyUgoira => illust.type == 'ugoira',
                           UgoiraFilter.noUgoira => illust.type != 'ugoira',
                         };
+                        return ugoiraOk &&
+                            _pageRange.matches(illust.pageCount) &&
+                            _viewRange.matches(illust.totalView) &&
+                            _bookmarkRange.matches(illust.totalBookmarks);
                       },
                     ))
         ],
@@ -355,6 +399,9 @@ class _ResultIllustListState extends State<ResultIllustList> {
         selectSort: selectSort,
         searchTarget: searchTarget,
         ugoiraFilter: ugoiraFilter,
+        pageRange: _pageRange,
+        viewRange: _viewRange,
+        bookmarkRange: _bookmarkRange,
         onPremium: () {
           setState(() {
             futureGet = ApiForceSource(
@@ -372,12 +419,19 @@ class _ResultIllustListState extends State<ResultIllustList> {
             required int searchAIType,
             required String searchTarget,
             required String selectSort,
-            required UgoiraFilter ugoiraFilter}) {
+            required UgoiraFilter ugoiraFilter,
+            required PageCountRange pageRange,
+            required CountRange viewRange,
+            required CountRange bookmarkRange}) {
           setState(() {
             this.searchAIType = searchAIType;
             this.searchTarget = searchTarget;
             this.selectSort = selectSort;
             this.ugoiraFilter = ugoiraFilter;
+            // 之前漏了这一行，导致选完页数点"应用"后 _pageRange 从未更新。
+            this._pageRange = pageRange.normalized();
+            this._viewRange = viewRange.normalized();
+            this._bookmarkRange = bookmarkRange.normalized();
             this.recordRememberCurrentSelection =
                 recordRememberCurrentSelection;
           });
@@ -487,6 +541,9 @@ class ResultIllustSortWidget extends StatefulWidget {
   final String selectSort;
   final String searchTarget;
   final UgoiraFilter ugoiraFilter;
+  final PageCountRange pageRange;
+  final CountRange viewRange;
+  final CountRange bookmarkRange;
   final Function onPremium;
   final Function onApply;
   final Function(
@@ -494,6 +551,9 @@ class ResultIllustSortWidget extends StatefulWidget {
       required String selectSort,
       required int searchAIType,
       required UgoiraFilter ugoiraFilter,
+      required PageCountRange pageRange,
+      required CountRange viewRange,
+      required CountRange bookmarkRange,
       required bool recordRememberCurrentSelection}) onSateChange;
   const ResultIllustSortWidget(
       {super.key,
@@ -501,6 +561,9 @@ class ResultIllustSortWidget extends StatefulWidget {
       required this.selectSort,
       required this.searchTarget,
       required this.ugoiraFilter,
+      required this.pageRange,
+      required this.viewRange,
+      required this.bookmarkRange,
       required this.onPremium,
       required this.onApply,
       required this.onSateChange});
@@ -514,6 +577,9 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
   late String selectSort = widget.selectSort;
   late String searchTarget = widget.searchTarget;
   late UgoiraFilter ugoiraFilter = widget.ugoiraFilter;
+  late PageCountRange pageRange = widget.pageRange;
+  late CountRange viewRange = widget.viewRange;
+  late CountRange bookmarkRange = widget.bookmarkRange;
   final sort = [
     "date_desc",
     "date_asc",
@@ -542,6 +608,112 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
     }
   }
 
+  /// 自定义筛选（页数 / 观看数 / 点赞数），放在筛选页最上面。
+  Widget _buildCustomFilters(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRangeInputRow(
+            context,
+            label: I18n.of(context).page_count_range,
+            minValue: pageRange.min,
+            maxValue: pageRange.max,
+            onChanged: (min, max) => setState(() {
+              pageRange = PageCountRange(min: min, max: max).normalized();
+            }),
+          ),
+          _buildRangeInputRow(
+            context,
+            label: I18n.of(context).view_count_range,
+            minValue: viewRange.min,
+            maxValue: viewRange.max,
+            onChanged: (min, max) => setState(() {
+              viewRange = CountRange(min: min, max: max).normalized();
+            }),
+          ),
+          _buildRangeInputRow(
+            context,
+            label: I18n.of(context).bookmark_count_range,
+            minValue: bookmarkRange.min,
+            maxValue: bookmarkRange.max,
+            onChanged: (min, max) => setState(() {
+              bookmarkRange = CountRange(min: min, max: max).normalized();
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 一行"A — B"的数字输入。0 或留空都表示不限。
+  Widget _buildRangeInputRow(
+    BuildContext context, {
+    required String label,
+    required int minValue,
+    required int maxValue,
+    required void Function(int min, int max) onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72.0,
+            child:
+                Text(label, style: Theme.of(context).textTheme.titleSmall),
+          ),
+          Expanded(
+            child: _buildNumberField(
+              context,
+              value: minValue,
+              onChanged: (v) => onChanged(v, maxValue),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text('—'),
+          ),
+          Expanded(
+            child: _buildNumberField(
+              context,
+              value: maxValue,
+              onChanged: (v) => onChanged(minValue, v),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 数字输入框。空着就是不限。
+  ///
+  /// 用 TextFormField + initialValue 而不是自己管 controller：
+  /// 少一份生命周期要维护，父级 setState 重建时输入内容也不会丢。
+  Widget _buildNumberField(
+    BuildContext context, {
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return TextFormField(
+      initialValue: value == 0 ? '' : '$value',
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      decoration: InputDecoration(
+        hintText: I18n.of(context).page_count_any,
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+        border: const OutlineInputBorder(),
+      ),
+      onChanged: (text) => onChanged(parseCountInput(text)),
+    );
+  }
+
+  /// 弹窗高度占屏幕的比例，和缩略图全览保持一致。
+  static const double _sheetHeightRatio = 0.95;
+
   @override
   Widget build(BuildContext context) {
     final searchTargetMap = {
@@ -563,121 +735,151 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
       UgoiraFilter.onlyUgoira: I18n.of(context).ugoira_only,
       UgoiraFilter.noUgoira: I18n.of(context).ugoira_none,
     };
-    return SafeArea(
-      child: Container(
-          width: MediaQuery.of(context).size.width,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final mq = MediaQuery.of(context);
+    final screenHeight = mq.size.height;
+    // 弹窗顶部空出的那 5% 正好让开状态栏；状态栏比这个空隙还高时才补内边距，
+    // 否则"应用"会压到通知栏上点不到。
+    final gap = screenHeight * (1 - _sheetHeightRatio);
+    final extraTop = mq.padding.top > gap ? mq.padding.top - gap : 0.0;
+    return SizedBox(
+      height: screenHeight * _sheetHeightRatio,
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8.0)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            // 标题栏固定不跟着滚动，这样选项再多"应用"也永远点得到。
+            Padding(
+              padding: EdgeInsets.fromLTRB(8.0, extraTop, 8.0, 0.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  TextButton(
+                      onPressed: () {},
+                      child: Text(I18n.of(context).filter,
+                          style: TextStyle(
+                              color:
+                                  Theme.of(context).colorScheme.secondary))),
+                  TextButton(
+                      onPressed: () {
+                        widget.onSateChange(
+                            searchTarget: searchTarget,
+                            selectSort: selectSort,
+                            searchAIType: searchAIType,
+                            ugoiraFilter: ugoiraFilter,
+                            pageRange: pageRange,
+                            viewRange: viewRange,
+                            bookmarkRange: bookmarkRange,
+                            recordRememberCurrentSelection:
+                                recordRememberCurrentSelection);
+                        widget.onApply();
+                        Navigator.of(context).pop();
+                      },
+                      child: Text(I18n.of(context).apply,
+                          style: TextStyle(
+                              color:
+                                  Theme.of(context).colorScheme.secondary))),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    TextButton(
-                        onPressed: () {},
-                        child: Text(I18n.of(context).filter,
-                            style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.secondary))),
-                    TextButton(
-                        onPressed: () {
-                          widget.onSateChange(
-                              searchTarget: searchTarget,
-                              selectSort: selectSort,
-                              searchAIType: searchAIType,
-                              ugoiraFilter: ugoiraFilter,
-                              recordRememberCurrentSelection:
-                                  recordRememberCurrentSelection);
-                          widget.onApply();
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(I18n.of(context).apply,
-                            style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.secondary))),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final (index, data)
-                          in searchTargetMap.entries.indexed)
-                        _buildTargetItem(index, data, context),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final (index, data) in selectSortMap.entries.indexed)
-                        _buildSortItem(index, context, data),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    children: [
-                      for (final entry in ugoiraFilterMap.entries)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                ugoiraFilter = entry.key;
-                              });
-                            },
-                            child: Container(
-                              margin: EdgeInsets.symmetric(horizontal: 4.0),
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              decoration: ugoiraFilter == entry.key
-                                  ? BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .secondaryContainer,
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    )
-                                  : null,
-                              child: Text(
-                                entry.value,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12),
+                    // 自定义筛选放在最上面，进来就能填。
+                    _buildCustomFilters(context),
+                    Container(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (index, data)
+                              in searchTargetMap.entries.indexed)
+                            _buildTargetItem(index, data, context),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (index, data)
+                              in selectSortMap.entries.indexed)
+                            _buildSortItem(index, context, data),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          for (final entry in ugoiraFilterMap.entries)
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    ugoiraFilter = entry.key;
+                                  });
+                                },
+                                child: Container(
+                                  margin:
+                                      EdgeInsets.symmetric(horizontal: 4.0),
+                                  padding:
+                                      EdgeInsets.symmetric(vertical: 8.0),
+                                  decoration: ugoiraFilter == entry.key
+                                      ? BoxDecoration(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .secondaryContainer,
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
+                                        )
+                                      : null,
+                                  child: Text(
+                                    entry.value,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    SwitchListTile(
+                      value: searchAIType != 1,
+                      onChanged: (v) {
+                        setState(() {
+                          searchAIType = !v ? 1 : 0;
+                        });
+                      },
+                      title: Text(I18n.of(context).ai_generated),
+                    ),
+                    SwitchListTile(
+                      value: recordRememberCurrentSelection,
+                      onChanged: (v) async {
+                        await Prefer.setBool(rememberKey, v);
+                        setState(() {
+                          recordRememberCurrentSelection = v;
+                        });
+                      },
+                      title: Text(I18n.of(context).remember_current_selections),
+                    ),
+                    Container(
+                      height: 16,
+                    ),
+                  ],
                 ),
-                SwitchListTile(
-                  value: searchAIType != 1,
-                  onChanged: (v) {
-                    setState(() {
-                      searchAIType = !v ? 1 : 0;
-                    });
-                  },
-                  title: Text(I18n.of(context).ai_generated),
-                ),
-                SwitchListTile(
-                  value: recordRememberCurrentSelection,
-                  onChanged: (v) async {
-                    await Prefer.setBool(rememberKey, v);
-                    setState(() {
-                      recordRememberCurrentSelection = v;
-                    });
-                  },
-                  title: Text(I18n.of(context).remember_current_selections),
-                ),
-                Container(
-                  height: 16,
-                )
-              ],
+              ),
             ),
-          )),
+          ],
+        ),
+      ),
     );
   }
 

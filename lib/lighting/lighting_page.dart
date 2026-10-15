@@ -25,6 +25,8 @@ import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/lighting/lighting_filter.dart';
+import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
@@ -76,10 +78,31 @@ class _LightingListState extends State<LightingList> {
   late ScrollController _scrollController;
   late bool _ai;
 
+  /// 过滤后实际要显示的列表。
+  ///
+  /// 以前是在 build 里对 [_store.iStores] 做破坏性 removeWhere，
+  /// 导致"改动筛选条件后已经删掉的条目回不来"。现在改成渲染时计算：
+  /// 原始数据保持不动，[widget.filter] 只是视图。这样筛选条件一变，
+  /// 已经加载过的数据可以立刻重新参与判断，不必重新搜索。
+  List<IllustStore> _visibleStores = const [];
+
+  /// 自动补足用的状态。客户端过滤会把一部分结果筛掉，
+  /// 若可见条目少到无法滚动，列表就再也不会触发"加载更多"而卡死，
+  /// 所以这里主动多拉几页直到凑够一屏。
+  bool _backfilling = false;
+  int _backfillRounds = 0;
+
+  /// 希望过滤后至少能看到多少条。
+  static const int _filterTargetCount = 12;
+
+  /// 每次筛选条件变化后最多额外拉取几轮，避免筛得太严时狂发请求。
+  static const int _maxBackfillRounds = 4;
+
   @override
   void didUpdateWidget(LightingList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source != widget.source) {
+      _backfillRounds = 0;
       _store.source = widget.source;
       _fetch();
     }
@@ -87,11 +110,63 @@ class _LightingListState extends State<LightingList> {
 
   _fetch() async {
     await _store.fetch(force: true);
+    _backfillRounds = 0;
     if (!_isNested &&
         _store.errorMessage == null &&
         !_store.iStores.isEmpty &&
         _scrollController.hasClients) {
       _scrollController.position.jumpTo(0.0);
+    }
+    _recomputeVisible();
+  }
+
+  /// 按当前筛选条件算出可见列表。
+  List<IllustStore> _computeVisible() {
+    final filter = widget.filter;
+    if (filter == null) return _store.iStores.toList(growable: false);
+    return _store.iStores
+        .where((e) => e.illusts != null && filter(e.illusts!))
+        .toList(growable: false);
+  }
+
+  void _recomputeVisible() {
+    _visibleStores = _computeVisible();
+  }
+
+  /// 过滤后条目太少时，继续拉取更多结果直到够一屏或到达上限。
+  Future<void> _backfillForFilter() async {
+    if (_backfilling) return;
+    if (widget.filter == null) return;
+    if (!shouldFetchMoreForFilter(
+      visibleCount: _visibleStores.length,
+      targetCount: _filterTargetCount,
+      nextUrl: _store.nextUrl,
+      roundsDone: _backfillRounds,
+      maxRounds: _maxBackfillRounds,
+    )) {
+      return;
+    }
+    _backfilling = true;
+    try {
+      while (mounted &&
+          shouldFetchMoreForFilter(
+            visibleCount: _visibleStores.length,
+            targetCount: _filterTargetCount,
+            nextUrl: _store.nextUrl,
+            roundsDone: _backfillRounds,
+            maxRounds: _maxBackfillRounds,
+          )) {
+        final before = _store.iStores.length;
+        _backfillRounds++;
+        await _store.fetchNext();
+        if (!mounted) return;
+        _recomputeVisible();
+        // 没有拿到新数据就收手，避免空转。
+        if (_store.iStores.length == before) break;
+      }
+    } finally {
+      _backfilling = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -136,13 +211,6 @@ class _LightingListState extends State<LightingList> {
   late EasyRefreshController _refreshController;
 
   Widget _buildWithoutHeader(context) {
-    _store.iStores.removeWhere((element) {
-      if (element.illusts!.hateByUser(ai: _ai)) return true;
-      if (widget.filter != null && !widget.filter!(element.illusts!)) {
-        return true;
-      }
-      return false;
-    });
     return NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification notification) {
           if (widget.isNested == true) {
@@ -165,13 +233,15 @@ class _LightingListState extends State<LightingList> {
             _store.fetch(force: true);
           },
           onLoad: () {
-            _store.fetchNext();
+            _store.fetchNext().then((_) {
+              if (mounted) setState(() {});
+            });
           },
           childBuilder: (context, physics) => WaterfallFlow.builder(
             physics: physics,
             controller: widget.isNested ?? false ? null : _scrollController,
             padding: EdgeInsets.all(5.0),
-            itemCount: _store.iStores.length,
+            itemCount: _visibleStores.length,
             itemBuilder: (context, index) {
               return _buildItem(index);
             },
@@ -195,16 +265,64 @@ class _LightingListState extends State<LightingList> {
     return false;
   }
 
+  /// 过滤后一条都不剩但原始数据还在时，不能直接显示空白：
+  /// 空白列表无法滚动，就再也不会触发"加载更多"，会彻底卡死。
+  Widget _buildFilteredEmpty() {
+    return Container(
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              I18n.of(context).filter_no_result,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          TextButton(
+            onPressed: _backfilling
+                ? null
+                : () {
+                    _backfillRounds = 0;
+                    _backfillForFilter();
+                  },
+            child: Text(
+              _backfilling
+                  ? I18n.of(context).footer_loading
+                  : I18n.of(context).load_more,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildContent(context) {
-    return _store.errorMessage != null
-        ? _buildErrorContent(context)
-        : _store.iStores.isNotEmpty
-            ? (widget.header != null
-                ? _buildWithHeader(context)
-                : _buildWithoutHeader(context))
-            : Container(
-                child: _store.refreshing ? WaterFallLoading() : Container(),
-              );
+    if (_store.errorMessage != null) return _buildErrorContent(context);
+    if (_store.iStores.isEmpty) {
+      return Container(
+        child: _store.refreshing ? WaterFallLoading() : Container(),
+      );
+    }
+    // 屏蔽类过滤是会话级的一次性剔除，保留原有的破坏性行为；
+    // 业务筛选（widget.filter）改成渲染时计算，不动原始数据。
+    _store.iStores.removeWhere(
+      (element) =>
+          element.illusts == null || element.illusts!.hateByUser(ai: _ai),
+    );
+    _visibleStores = _computeVisible();
+    if (_visibleStores.isEmpty && widget.filter != null) {
+      // 有数据但被筛光了：给提示与手动入口，并继续自动补足，
+      // 否则空白列表无法滚动，就再也不会触发"加载更多"。
+      _scheduleBackfill();
+      return _buildFilteredEmpty();
+    }
+    _scheduleBackfill();
+    return widget.header != null
+        ? _buildWithHeader(context)
+        : _buildWithoutHeader(context);
   }
 
   Widget _buildErrorContent(context) {
@@ -291,20 +409,16 @@ class _LightingListState extends State<LightingList> {
 
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
       BuildContext context) {
-    _store.iStores.removeWhere((element) {
-      if (element.illusts!.hateByUser(ai: _ai)) return true;
-      if (widget.filter != null && !widget.filter!(element.illusts!)) {
-        return true;
-      }
-      return false;
-    });
+    final visible = _visibleStores
+        .map((e) => e)
+        .toList(growable: false);
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
-        store: _store.iStores[index],
-        iStores: _store.iStores,
+        store: visible[index],
+        iStores: visible,
       );
-    }, childCount: _store.iStores.length);
+    }, childCount: visible.length);
   }
 
   SliverWaterfallFlowDelegate _buildGridDelegate() {
@@ -338,9 +452,18 @@ class _LightingListState extends State<LightingList> {
 
   Widget _buildItem(int index) {
     return IllustCard(
-      store: _store.iStores[index],
+      store: _visibleStores[index],
       lightingStore: _store,
-      iStores: _store.iStores,
+      iStores: _visibleStores,
     );
+  }
+
+  /// 延后一帧再补足，避免在 build 期间触发网络请求与 setState。
+  void _scheduleBackfill() {
+    if (widget.filter == null) return;
+    if (_visibleStores.length >= _filterTargetCount) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _backfillForFilter();
+    });
   }
 }

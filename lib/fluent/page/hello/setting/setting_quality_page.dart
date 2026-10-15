@@ -28,6 +28,9 @@ import 'package:pixez/er/updater.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/about/languages.dart';
+import 'package:pixez/page/zoom/page_thumbnail_bar.dart';
+import 'package:pixez/page/zoom/tap_zone.dart';
+import 'package:pixez/page/zoom/tap_zone_overlay.dart';
 import 'package:pixez/fluent/page/hello/setting/copy_text_page.dart';
 import 'package:pixez/fluent/page/hello/setting/setting_cross_adapter_page.dart';
 import 'package:pixez/fluent/page/network/network_page.dart';
@@ -411,6 +414,245 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                 },
               ),
             ),
+          ListTile(
+            leading: const Icon(FluentIcons.touch),
+            title: Text(I18n.of(context).tap_zone_mode),
+            subtitle: Text(I18n.of(context).tap_zone_mode_desc),
+            trailing: Observer(
+              builder: (_) {
+                final tablist = TapZoneMode.values
+                    .map((mode) => tapZoneModeLabel(context, mode))
+                    .toList();
+                return ComboBox<int>(
+                  value: userSetting.tapZoneMode,
+                  items: tablist
+                      .asMap()
+                      .entries
+                      .map(
+                        (i) => ComboBoxItem(child: Text(i.value), value: i.key),
+                      )
+                      .toList(),
+                  onChanged: (index) async {
+                    await userSetting.setTapZoneMode(index!);
+                  },
+                );
+              },
+            ),
+          ),
+          // 与 Mihon 一致：选到"禁用"时不显示反转设置。
+          if (userSetting.tapZoneMode != TapZoneMode.disabled.value)
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: Text(I18n.of(context).tap_zone_invert),
+              subtitle: Text(I18n.of(context).tap_zone_invert_desc),
+              trailing: Observer(
+                builder: (_) {
+                  final tablist = TapZoneInvert.values
+                      .map((invert) => tapZoneInvertLabel(context, invert))
+                      .toList();
+                  return ComboBox<int>(
+                    value: userSetting.tapZoneInvert,
+                    items: tablist
+                        .asMap()
+                        .entries
+                        .map(
+                          (i) =>
+                              ComboBoxItem(child: Text(i.value), value: i.key),
+                        )
+                        .toList(),
+                    onChanged: (index) async {
+                      await userSetting.setTapZoneInvert(index!);
+                    },
+                  );
+                },
+              ),
+            ),
+          ListTile(
+            leading: const Icon(Icons.visibility),
+            title: Text(I18n.of(context).tap_zone_overlay),
+            subtitle: Text(I18n.of(context).tap_zone_overlay_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.showTapZoneOverlay,
+                  onChanged: (value) async {
+                    await userSetting.setShowTapZoneOverlay(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.view_carousel_outlined),
+            title: Text(I18n.of(context).show_thumbnail_bar),
+            subtitle: Text(I18n.of(context).show_thumbnail_bar_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.showThumbnailBar,
+                  onChanged: (value) async {
+                    await userSetting.setShowThumbnailBar(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.linear_scale),
+            title: Text(I18n.of(context).show_progress_slider),
+            subtitle: Text(I18n.of(context).show_progress_slider_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.showProgressSlider,
+                  onChanged: (value) async {
+                    await userSetting.setShowProgressSlider(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.numbers),
+            title: Text(I18n.of(context).show_page_indicator),
+            subtitle: Text(I18n.of(context).show_page_indicator_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.showPageIndicator,
+                  onChanged: (value) async {
+                    await userSetting.setShowPageIndicator(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.downloading),
+            title: Text(I18n.of(context).prefetch_count),
+            subtitle: Text(I18n.of(context).prefetch_count_desc),
+            trailing: Observer(
+              builder: (_) {
+                const options = [0, 3, 4, 5, 6, 7, 8, 9, 10];
+                return ComboBox<int>(
+                  value: userSetting.prefetchCount,
+                  items: options
+                      .map((e) => ComboBoxItem(child: Text('$e'), value: e))
+                      .toList(),
+                  onChanged: (value) async {
+                    await userSetting.setPrefetchCount(value!);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.grid_view),
+            title: Text(I18n.of(context).thumbnail_grid_columns),
+            subtitle: Text(I18n.of(context).thumbnail_grid_columns_desc),
+            trailing: Observer(
+              builder: (_) {
+                const options = [2, 3, 4, 5, 6, 7, 8];
+                return ComboBox<int>(
+                  value: userSetting.thumbnailGridColumns,
+                  items: options
+                      .map((e) => ComboBoxItem(child: Text('$e'), value: e))
+                      .toList(),
+                  onChanged: (value) async {
+                    await userSetting.setThumbnailGridColumns(value!);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.vibration),
+            title: Text(I18n.of(context).thumbnail_scrub_haptic),
+            subtitle: Text(I18n.of(context).thumbnail_scrub_haptic_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.thumbnailScrubHaptic,
+                  onChanged: (value) async {
+                    await userSetting.setThumbnailScrubHaptic(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: Text(I18n.of(context).thumbnail_strip_rtl),
+            subtitle: Text(I18n.of(context).thumbnail_strip_rtl_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.thumbnailStripRightToLeft,
+                  onChanged: (value) async {
+                    await userSetting.setThumbnailStripRightToLeft(value);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.crop_free),
+            title: Text(I18n.of(context).thumbnail_shape),
+            subtitle: Text(I18n.of(context).thumbnail_shape_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ComboBox<int>(
+                  value: userSetting.thumbnailShape.clamp(0, 1),
+                  items: [
+                    ComboBoxItem(
+                      child: Text(I18n.of(context).thumbnail_shape_uniform),
+                      value: 0,
+                    ),
+                    ComboBoxItem(
+                      child: Text(I18n.of(context).thumbnail_shape_original),
+                      value: 1,
+                    ),
+                  ],
+                  onChanged: (value) async {
+                    await userSetting.setThumbnailShape(value!);
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_size_select_small),
+            title: Text(I18n.of(context).thumbnail_strip_size),
+            subtitle: Text(I18n.of(context).thumbnail_strip_size_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ComboBox<int>(
+                  value: userSetting.thumbnailStripSize.round(),
+                  items: kThumbnailSizeOptions
+                      .map((e) => ComboBoxItem(child: Text('$e'), value: e))
+                      .toList(),
+                  onChanged: (value) async {
+                    await userSetting.setThumbnailStripSize(value!.toDouble());
+                  },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: Text(I18n.of(context).read_right_to_left),
+            subtitle: Text(I18n.of(context).read_right_to_left_desc),
+            trailing: Observer(
+              builder: (_) {
+                return ToggleSwitch(
+                  checked: userSetting.readRightToLeft,
+                  onChanged: (value) async {
+                    await userSetting.setReadRightToLeft(value);
+                  },
+                );
+              },
+            ),
+          ),
           ListTile(
             title: Text(I18n.of(context).illust_detail_save_skip_confirm),
             trailing: ToggleSwitch(

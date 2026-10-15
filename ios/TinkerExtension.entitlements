@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!-- 自用版移除了 App Group：第三方签名工具多数拿不到
+	     App Group 的授权，留着会导致签名失败。
+	     代价是桌面小组件无法与主 App 共享数据。 -->
 <dict>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.pixez</string>
-	</array>
 </dict>
 </plist>

@@ -58,6 +58,44 @@
 
 觉得有些地方设计的不妥？同样欢迎分享设计。
 
+## 本地构建 / Build locally
+
+> ⚠️ **克隆下来不能直接 `flutter build`**：本项目把生成文件（`*.g.dart`、
+> `*.freezed.dart`、`lib/src/generated/`）都做了 gitignore，和上游的做法一致。
+> 少走下面任意一步都会编译失败。
+
+```bash
+flutter pub get
+
+# 生成 json_serializable / mobx / freezed 代码
+dart run build_runner build --delete-conflicting-outputs
+
+# 生成国际化代码（注意：build_runner 不会替你跑这个）
+flutter gen-l10n
+
+flutter build apk --release
+# 或者
+flutter build ios --release --no-codesign
+```
+
+**环境要求**（作者验证过的一套，版本对不上容易出现奇怪的编译错误）：
+
+| 组件 | 版本 |
+| --- | --- |
+| Flutter | 3.47.7 (stable) |
+| Dart SDK | `>=3.11.5` |
+| JDK | 21 |
+| Android NDK | 28.2.13676358 |
+| Rust | 1.99.0（`plugins/rhttp` 需要，目标 `aarch64-linux-android`） |
+
+iOS 还需要 CocoaPods（`ios/Podfile`）。
+
+## 本仓库相对上游的改动
+
+这是一个基于上游的**个人定制版**，App 名称改为 `MyPixez`，
+Android `applicationId` / iOS bundle id 都改成了 `com.tianyu.pixez`，
+以便和官方版共存。改动清单见 [CUSTOMIZATIONS.md](CUSTOMIZATIONS.md)。
+
 ## 常见问题及交流反馈
 
 [使用指南 & 常见问题在这里](.github/FAQ.md)，反馈问题 / 加群询问之前请先看！（特别是旧原生版用户）

@@ -136,7 +136,7 @@ Widget buildFluentUI(BuildContext context) {
                 );
               },
             ),
-            title: 'PixEz',
+            title: 'MyPixez',
             builder: (context, child) {
               child = botToastBuilder(context, child);
               return Directionality(

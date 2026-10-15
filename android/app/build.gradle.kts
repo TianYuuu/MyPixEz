@@ -56,10 +56,12 @@ if (keystorePropertiesFile.exists()) {
 
 val isGooglePlay = dartEnvironmentVariables["IS_GOOGLEPLAY"] as Boolean
 
+// 本地自用分支：非 Google Play 渠道使用独立包名，
+// 这样可以和应用商店的官方 PixEz 同时安装，互不覆盖。
 val packageName = if (isGooglePlay) {
     "com.perol.play.pixez"
 } else {
-    "com.perol.pixez"
+    "com.tianyu.pixez"
 }
 
 android {
