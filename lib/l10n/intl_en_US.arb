@@ -426,5 +426,8 @@
   "jump_to_top": "Back to top",
   "page_count_range": "Pages",
   "view_count_range": "Views",
-  "bookmark_count_range": "Bookmarks"
+  "bookmark_count_range": "Bookmarks",
+  "novel_view_count_range": "Reads",
+  "novel_bookmark_count_range": "Bookmarks",
+  "text_length_range": "Words"
 }

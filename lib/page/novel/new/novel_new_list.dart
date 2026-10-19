@@ -1,10 +1,10 @@
-
-
 import 'package:material_ui/material_ui.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/page/novel/component/novel_filter_sheet.dart';
 import 'package:pixez/page/novel/component/novel_lighting_list.dart';
+import 'package:pixez/page/novel/novel_filter.dart';
 
 class NovelNewList extends StatefulWidget {
   const NovelNewList({super.key});
@@ -15,6 +15,10 @@ class NovelNewList extends StatefulWidget {
 
 class _NovelNewListState extends State<NovelNewList> {
   late FutureGet futureGet;
+
+  /// 阅读数 / 收藏数 / 字数 / 标签筛选。纯本地过滤，进页面时恢复上次的选择。
+  late NovelFilter _filter = loadNovelFilter(NovelFilterScope.newList);
+
   @override
   void initState() {
     futureGet = () => apiClient.getNovelFollow('public');
@@ -24,50 +28,66 @@ class _NovelNewListState extends State<NovelNewList> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      child: Column(children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-              icon: Icon(Icons.list),
-              onPressed: () {
-                showModalBottomSheet(
-                    context: context,
-                    shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(16.0))),
-                    builder: (context) {
-                      return SafeArea(
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NovelFilterButton(
+                  scope: NovelFilterScope.newList,
+                  filter: _filter,
+                  onChanged: (filter) => setState(() => _filter = filter),
+                ),
+                IconButton(
+                  icon: Icon(Icons.list),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16.0),
+                        ),
+                      ),
+                      builder: (context) {
+                        return SafeArea(
                           child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            title: Text(I18n.of(context).public),
-                            onTap: () {
-                              setState(() {
-                                futureGet =
-                                    () => apiClient.getNovelFollow('public');
-                              });
-                            },
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                title: Text(I18n.of(context).public),
+                                onTap: () {
+                                  setState(() {
+                                    futureGet = () =>
+                                        apiClient.getNovelFollow('public');
+                                  });
+                                },
+                              ),
+                              ListTile(
+                                title: Text(I18n.of(context).private),
+                                onTap: () {
+                                  setState(() {
+                                    futureGet = () =>
+                                        apiClient.getNovelFollow('private');
+                                  });
+                                },
+                              ),
+                            ],
                           ),
-                          ListTile(
-                              title: Text(I18n.of(context).private),
-                              onTap: () {
-                                setState(() {
-                                  futureGet =
-                                      () => apiClient.getNovelFollow('private');
-                                });
-                              }),
-                        ],
-                      ));
-                    });
-              }),
-        ),
-        Expanded(
-          child: NovelLightingList(
-            futureGet: futureGet,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-      ]),
+          Expanded(
+            child: NovelLightingList(futureGet: futureGet, filter: _filter),
+          ),
+        ],
+      ),
     );
   }
 }

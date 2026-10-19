@@ -425,5 +425,8 @@
   "jump_to_top": "回到顶部",
   "page_count_range": "页数",
   "view_count_range": "观看数",
-  "bookmark_count_range": "点赞数"
+  "bookmark_count_range": "点赞数",
+  "novel_view_count_range": "阅读数",
+  "novel_bookmark_count_range": "收藏数",
+  "text_length_range": "字数"
 }

@@ -20,7 +20,9 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/page/novel/component/novel_filter_sheet.dart';
 import 'package:pixez/page/novel/component/novel_lighting_list.dart';
+import 'package:pixez/page/novel/novel_filter.dart';
 
 class NovelBookmarkPage extends StatefulWidget {
   final int? id;
@@ -34,6 +36,10 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
   String restrict = 'public';
   late FutureGet futureGet;
   late int id;
+
+  /// 阅读数 / 收藏数 / 字数 / 标签筛选。纯本地过滤，进页面时恢复上次的选择。
+  late NovelFilter _filter = loadNovelFilter(NovelFilterScope.bookmark);
+
   @override
   void initState() {
     id = widget.id ?? int.parse(accountStore.now!.userId);
@@ -43,66 +49,77 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      if (int.parse(accountStore.now!.userId) == id)
-        return Column(
-          children: <Widget>[
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                  icon: Icon(Icons.list),
-                  onPressed: () {
-                    _buildShowModalBottomSheet(context);
-                  }),
-            ),
-            Expanded(
-              child: NovelLightingList(
-                futureGet: futureGet,
+    return Observer(
+      builder: (context) {
+        if (int.parse(accountStore.now!.userId) == id)
+          return Column(
+            children: <Widget>[
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NovelFilterButton(
+                      scope: NovelFilterScope.bookmark,
+                      filter: _filter,
+                      onChanged: (filter) => setState(() => _filter = filter),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.list),
+                      onPressed: () {
+                        _buildShowModalBottomSheet(context);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            )
-          ],
-        );
-      else {
-        return NovelLightingList(
-          futureGet: futureGet,
-        );
-      }
-    });
+              Expanded(
+                child: NovelLightingList(futureGet: futureGet, filter: _filter),
+              ),
+            ],
+          );
+        else {
+          return NovelLightingList(futureGet: futureGet);
+        }
+      },
+    );
   }
 
   _buildShowModalBottomSheet(BuildContext context) {
     showModalBottomSheet(
-        context: context,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16.0))),
-        builder: (context) {
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                ListTile(
-                  title: Text(I18n.of(context).public),
-                  onTap: () {
-                    setState(() {
-                      futureGet =
-                          () => apiClient.getUserBookmarkNovel(id, 'public');
-                    });
-                    Navigator.of(context).pop();
-                  },
-                ),
-                ListTile(
-                  title: Text(I18n.of(context).private),
-                  onTap: () {
-                    setState(() {
-                      futureGet =
-                          () => apiClient.getUserBookmarkNovel(id, 'private');
-                    });
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            ),
-          );
-        });
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                title: Text(I18n.of(context).public),
+                onTap: () {
+                  setState(() {
+                    futureGet = () =>
+                        apiClient.getUserBookmarkNovel(id, 'public');
+                  });
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                title: Text(I18n.of(context).private),
+                onTap: () {
+                  setState(() {
+                    futureGet = () =>
+                        apiClient.getUserBookmarkNovel(id, 'private');
+                  });
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

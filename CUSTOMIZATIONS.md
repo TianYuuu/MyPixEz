@@ -93,6 +93,26 @@ GPL-3.0 发布。
 筛空时给「当前筛选条件下暂时没有结果 + 加载更多」。点开图片后左右翻也只走筛选结果，
 不会跳到被隐藏的投稿。
 
+### 小说（设置 → 小说）
+
+| 位置 | 功能 | 说明 |
+| --- | --- | --- |
+| 小说「推荐」 | 标签 + 阅读数 / 收藏数 / 字数筛选 | 按钮在「推荐」标题右侧；纯本地过滤 |
+| 小说「动态」 | 同上 | 按钮在右上角（「公开/私密」列表图标旁边） |
+| 小说「收藏」 | 同上 | 同上（自己的收藏页） |
+
+小说和插画是两套独立的筛选模型（`NovelFilter` vs `IllustFilter`），因为数量维度
+不一样：小说的**页数基本都是 1**，没有筛的意义，换成更实用的**字数**
+（`text_length`）。其余三项——阅读数（`total_view`）、收藏数（`total_bookmarks`）、
+标签——字段和插画一一对应，同样零额外请求、纯本地过滤。
+
+三个小说列表各自记住自己的条件（`NovelFilterScope.recommend` / `newList` /
+`bookmark`）。动态和收藏共用 `NovelLightingList` 组件（给它加了 `filter` 参数），
+推荐页是独立卡片列表、单独接。三者都复用 `shouldFetchMoreForFilter` 自动补足，
+筛空时同样给「没有结果 + 加载更多」。标签补全和插画共用同一个
+`/v2/search/autocomplete` 接口；弹窗里的放大镜跳的是**小说搜索页**
+（`NovelResultPage`）。
+
 ### 缩略图角标
 
 | 类型 | 角标 |
@@ -185,7 +205,7 @@ GPL-3.0 发布。
 flutter test
 ```
 
-当前 **224 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
+当前 **244 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
 
 注意：本机如果开了 `HTTP_PROXY`，`flutter test` 会连不上 `flutter_tester` 的本地
 websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
@@ -194,7 +214,8 @@ websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
 新增的测试文件集中在 `test/`：点击分区、缩略图条/网格、看图页画质决策、
 预加载目标、页数/数量筛选、筛选弹窗布局、详情页侧边按钮、上滑手势、
 首页筛选（`illust_filter_test` / `illust_filter_sheet_test`）、
-缩略图角标（`illust_card_badge_test`，漫画标页数的规则）。
+缩略图角标（`illust_card_badge_test`，漫画标页数的规则）、
+小说筛选（`novel_filter_test` / `novel_filter_sheet_test`）。
 
 ---
 

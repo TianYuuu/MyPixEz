@@ -483,6 +483,7 @@ String? illustCardBadgeLabel(Illusts illusts) {
       ? illusts.pageCount
       : illusts.metaPages.length;
   if (illusts.type == 'manga') {
+    // 漫画一律标页数，单页也标 1（漫画看的就是这一话有几页）。
     // 页数拿不到（理论上不会）就别标，免得出现一个 "0"。
     return pages > 0 ? '$pages' : null;
   }
