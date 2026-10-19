@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pixez/component/illust_filter_sheet.dart';
 import 'package:pixez/lighting/illust_filter.dart';
+import 'package:pixez/models/tags.dart' as suggest;
 import 'package:pixez/page/search/count_filter.dart';
 import 'package:pixez/page/search/page_count_filter.dart';
 import 'package:pixez/src/generated/i18n/app_localizations.dart';
@@ -31,6 +32,7 @@ Future<void> _pumpHost(
   IllustFilter initial = IllustFilter.any,
   required void Function(IllustFilter?) onResult,
   Size screen = _screen,
+  Future<List<suggest.Tags>> Function(String word)? suggestionLoader,
 }) async {
   tester.view.physicalSize = screen;
   tester.view.devicePixelRatio = 1.0;
@@ -48,7 +50,13 @@ Future<void> _pumpHost(
         body: Builder(
           builder: (context) => TextButton(
             onPressed: () async {
-              onResult(await showIllustCountFilterSheet(context, initial));
+              onResult(
+                await showIllustCountFilterSheet(
+                  context,
+                  initial,
+                  suggestionLoader: suggestionLoader,
+                ),
+              );
             },
             child: const Text('open'),
           ),
@@ -186,6 +194,66 @@ void main() {
   });
 
   group('标签', () {
+    testWidgets('标签框默认是空的：没有文字、没有占位示例、没有预置 chip', (tester) async {
+      await _pumpHost(tester, onResult: (_) {});
+
+      final field = tester.widget<TextField>(find.byKey(tagInputKey));
+      expect(field.controller!.text, isEmpty);
+      expect(field.decoration!.hintText, isNull);
+      expect(find.byType(InputChip), findsNothing);
+      // 占位示例"初音未来"不应该出现在任何地方
+      expect(find.text('初音未来'), findsNothing);
+    });
+
+    testWidgets('输入后自动补全，点一条就变成 chip', (tester) async {
+      var asked = <String>[];
+      await _pumpHost(
+        tester,
+        onResult: (_) {},
+        suggestionLoader: (word) async {
+          asked.add(word);
+          return [
+            suggest.Tags(name: '初音ミク', translated_name: '初音未来'),
+            suggest.Tags(name: '初音ミク3D'),
+          ];
+        },
+      );
+
+      await tester.enterText(find.byKey(tagInputKey), '初音');
+      // 防抖 350ms，等它过去
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(asked, ['初音']);
+      expect(find.text('初音ミク'), findsOneWidget);
+      expect(find.text('初音未来'), findsOneWidget, reason: '候选里要显示译名');
+
+      await tester.tap(find.text('初音ミク'));
+      await tester.pumpAndSettle();
+
+      // 存的是原文，不是译名
+      expect(find.widgetWithText(InputChip, '初音ミク'), findsOneWidget);
+      // 选完候选列表收起
+      expect(find.text('初音ミク3D'), findsNothing);
+    });
+
+    testWidgets('输入被清空时候选也收起来', (tester) async {
+      await _pumpHost(
+        tester,
+        onResult: (_) {},
+        suggestionLoader: (word) async => [suggest.Tags(name: '初音ミク')],
+      );
+
+      await tester.enterText(find.byKey(tagInputKey), '初音');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.text('初音ミク'), findsOneWidget);
+
+      await tester.enterText(find.byKey(tagInputKey), '');
+      await tester.pumpAndSettle();
+      expect(find.text('初音ミク'), findsNothing);
+    });
+
     testWidgets('输入后回车变成 chip', (tester) async {
       await _pumpHost(tester, onResult: (_) {});
 

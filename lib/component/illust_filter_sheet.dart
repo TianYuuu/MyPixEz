@@ -14,9 +14,13 @@
  *
  */
 
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/illust_filter.dart';
+import 'package:pixez/models/tags.dart' as suggest;
+import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/search/count_filter.dart';
 import 'package:pixez/page/search/page_count_filter.dart';
 import 'package:pixez/page/search/result_page.dart';
@@ -34,8 +38,15 @@ const Key tagInputKey = Key('illust_filter_tag_input');
 class IllustCountFilterSheet extends StatefulWidget {
   final IllustFilter initial;
 
-  const IllustCountFilterSheet({Key? key, required this.initial})
-    : super(key: key);
+  /// 补全数据的来源。默认走 `apiClient`；测试里可以塞一个假的，
+  /// 免得为了验证"输入 → 出候选 → 变成 chip"去 mock 网络。
+  final Future<List<suggest.Tags>> Function(String word)? suggestionLoader;
+
+  const IllustCountFilterSheet({
+    Key? key,
+    required this.initial,
+    this.suggestionLoader,
+  }) : super(key: key);
 
   @override
   State<IllustCountFilterSheet> createState() => _IllustCountFilterSheetState();
@@ -73,6 +84,15 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
   late final List<String> _tags = List<String>.of(widget.initial.tags);
   final TextEditingController _tagInput = TextEditingController();
 
+  /// 输入时的自动补全，和搜索页用的是同一个接口
+  /// （`/v2/search/autocomplete`，见 `apiClient.getSearchAutoCompleteKeywords`）。
+  /// 只在停顿后才发请求，免得一个字一个请求。
+  Timer? _suggestDebounce;
+  List<suggest.Tags> _suggestions = const [];
+
+  static const Duration _suggestDelay = Duration(milliseconds: 350);
+  static const int _maxSuggestions = 8;
+
   TextEditingController _numberController(int value) =>
       TextEditingController(text: value == 0 ? '' : '$value');
 
@@ -87,21 +107,65 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
 
   @override
   void dispose() {
+    _suggestDebounce?.cancel();
     for (final controller in [..._allControllers, _tagInput]) {
       controller.dispose();
     }
     super.dispose();
   }
 
+  void _onTagChanged(String raw) {
+    _suggestDebounce?.cancel();
+    final word = raw.trim();
+    if (word.isEmpty) {
+      if (_suggestions.isNotEmpty) {
+        setState(() => _suggestions = const []);
+      }
+      return;
+    }
+    _suggestDebounce = Timer(_suggestDelay, () => _fetchSuggestions(word));
+  }
+
+  Future<void> _fetchSuggestions(String word) async {
+    try {
+      final loader = widget.suggestionLoader ?? _defaultSuggestionLoader;
+      final tags = await loader(word);
+      // 请求期间用户又改了输入，这份结果就过期了，别覆盖新的。
+      if (!mounted || _tagInput.text.trim() != word) return;
+      setState(() {
+        _suggestions = tags.take(_maxSuggestions).toList(growable: false);
+      });
+    } catch (_) {
+      // 补全是锦上添花，挂了就当没有，不能影响填写。
+      if (!mounted) return;
+      setState(() => _suggestions = const []);
+    }
+  }
+
+  static Future<List<suggest.Tags>> _defaultSuggestionLoader(
+    String word,
+  ) async {
+    final autoWords = await apiClient.getSearchAutoCompleteKeywords(word);
+    return autoWords.tags;
+  }
+
+  /// 从补全里选一个。存 `name`（pixiv 上的原文）而不是译名：
+  /// 原文每个作品都有，译名不一定，用原文命中率更高。
+  void _pickSuggestion(suggest.Tags tag) {
+    _suggestDebounce?.cancel();
+    setState(() => _suggestions = const []);
+    _addTag(tag.name);
+  }
+
   void _addTag(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return;
+    _suggestDebounce?.cancel();
     final exists = _tags.any((tag) => tag.toLowerCase() == value.toLowerCase());
-    if (!exists) {
-      setState(() {
-        _tags.add(value);
-      });
-    }
+    setState(() {
+      if (!exists) _tags.add(value);
+      _suggestions = const [];
+    });
     _tagInput.clear();
   }
 
@@ -127,16 +191,20 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
   }
 
   void _clear() {
+    _suggestDebounce?.cancel();
     for (final controller in _allControllers) {
       controller.clear();
     }
     _tagInput.clear();
     setState(() {
       _tags.clear();
+      _suggestions = const [];
     });
   }
 
   void _apply() {
+    // 补全请求没必要再发了。
+    _suggestDebounce?.cancel();
     // 输入框里还有没按回车的内容也要算进去，否则用户填完直接点"应用"会丢。
     final pending = _tagInput.text.trim();
     final tags = [..._tags, if (pending.isNotEmpty) pending];
@@ -252,16 +320,20 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
                   key: tagInputKey,
                   controller: _tagInput,
                   textInputAction: TextInputAction.done,
+                  onChanged: _onTagChanged,
                   onSubmitted: _addTag,
-                  // 例子里用专有名词，不用翻译。
                   decoration: InputDecoration(
-                    hintText: '初音未来',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8.0,
                       vertical: 10.0,
                     ),
                     border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.add, size: 18),
                       visualDensity: VisualDensity.compact,
@@ -272,13 +344,14 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
               ),
               // 本地筛不动了就去全站搜——搜索页走的是 pixiv 搜索接口。
               IconButton(
-                icon: const Icon(Icons.search, size: 20),
+                icon: const Icon(Icons.travel_explore, size: 20),
                 tooltip: I18n.of(context).search,
                 visualDensity: VisualDensity.compact,
                 onPressed: _searchCurrentTag,
               ),
             ],
           ),
+          if (_suggestions.isNotEmpty) _buildSuggestions(context),
           if (_tags.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 72.0, top: 6.0),
@@ -293,6 +366,54 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
                       onDeleted: () => _removeTag(tag),
                     ),
                 ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 输入时的补全候选。和搜索页一样，左边原文、右边译名。
+  Widget _buildSuggestions(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 72.0, top: 4.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final tag in _suggestions)
+            InkWell(
+              onTap: () => _pickSuggestion(tag),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4.0,
+                  vertical: 8.0,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        tag.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if ((tag.translated_name ?? '').isNotEmpty)
+                      Flexible(
+                        flex: 2,
+                        child: Text(
+                          tag.translated_name!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -346,15 +467,19 @@ class _IllustCountFilterSheetState extends State<IllustCountFilterSheet> {
 /// 打开筛选弹窗。返回 null 表示用户直接关掉了。
 Future<IllustFilter?> showIllustCountFilterSheet(
   BuildContext context,
-  IllustFilter initial,
-) {
+  IllustFilter initial, {
+  Future<List<suggest.Tags>> Function(String word)? suggestionLoader,
+}) {
   return showModalBottomSheet<IllustFilter>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(8.0)),
     ),
-    builder: (context) => IllustCountFilterSheet(initial: initial),
+    builder: (context) => IllustCountFilterSheet(
+      initial: initial,
+      suggestionLoader: suggestionLoader,
+    ),
   );
 }
 
