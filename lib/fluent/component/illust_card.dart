@@ -21,6 +21,9 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/clipboard_plugin.dart';
 import 'package:pixez/component/null_hero.dart';
+// 只取角标文案的计算函数：这里面两个文件都声明了 IllustCard，
+// 不加 show 会撞名。角标规则（漫画也标页数）两边必须一致。
+import 'package:pixez/component/illust_card.dart' show illustCardBadgeLabel;
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
@@ -199,17 +202,8 @@ class _IllustCardState extends State<IllustCard> {
     );
   }
 
-  Widget cardText() {
-    if (store.illusts!.type != "illust") {
-      return Text(store.illusts!.type, style: TextStyle(color: Colors.white));
-    }
-    if (store.illusts!.metaPages.isNotEmpty) {
-      return Text(
-        store.illusts!.metaPages.length.toString(),
-        style: TextStyle(color: Colors.white),
-      );
-    }
-    return Text('');
+  Widget cardText(String? label) {
+    return Text(label ?? '', style: TextStyle(color: Colors.white));
   }
 
   Widget _buildPic(String tag, bool tooLong) {
@@ -391,10 +385,12 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildVisibility() {
+    final label = illustCardBadgeLabel(
+      store.illusts!,
+      mangaLabel: I18n.of(context).manga,
+    );
     return Visibility(
-      visible:
-          store.illusts!.type != "illust" ||
-          store.illusts!.metaPages.isNotEmpty,
+      visible: label != null,
       child: Align(
         alignment: Alignment.topRight,
         child: Padding(
@@ -405,7 +401,7 @@ class _IllustCardState extends State<IllustCard> {
                 vertical: 2.0,
                 horizontal: 2.0,
               ),
-              child: cardText(),
+              child: cardText(label),
             ),
             decoration: BoxDecoration(
               color: Colors.black,

@@ -29,6 +29,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
@@ -155,17 +156,8 @@ class _IllustCardState extends State<IllustCard> {
     );
   }
 
-  Widget cardText() {
-    if (store.illusts!.type != "illust") {
-      return Text(store.illusts!.type, style: TextStyle(color: Colors.white));
-    }
-    if (store.illusts!.metaPages.isNotEmpty) {
-      return Text(
-        store.illusts!.metaPages.length.toString(),
-        style: TextStyle(color: Colors.white),
-      );
-    }
-    return Text('');
+  Widget cardText(String? label) {
+    return Text(label ?? '', style: TextStyle(color: Colors.white));
   }
 
   Widget _buildPic(String tag, bool tooLong) {
@@ -451,10 +443,12 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildVisibility() {
+    final label = illustCardBadgeLabel(
+      store.illusts!,
+      mangaLabel: I18n.of(context).manga,
+    );
     return Visibility(
-      visible:
-          store.illusts!.type != "illust" ||
-          store.illusts!.metaPages.isNotEmpty,
+      visible: label != null,
       child: Align(
         alignment: Alignment.topRight,
         child: Padding(
@@ -465,7 +459,7 @@ class _IllustCardState extends State<IllustCard> {
                 vertical: 0.0,
                 horizontal: 4.0,
               ),
-              child: cardText(),
+              child: cardText(label),
             ),
             decoration: BoxDecoration(
               color: Colors.black26,
@@ -476,6 +470,34 @@ class _IllustCardState extends State<IllustCard> {
       ),
     );
   }
+}
+
+/// 缩略图右上角角标要显示的文字；返回 `null` 表示不显示这个角标。
+///
+/// 原本的规则是：插画只在多页时标页数，其它类型（漫画）直接印上
+/// `type` 字段——于是漫画卡片只写着 "manga"，从外面完全看不出这一话
+/// 有几页。现在漫画改成"类型 + 页数"（`漫画 · 12`），单页漫画只标类型。
+///
+/// 页数优先读 `page_count`：它是接口必带字段，比 `meta_pages.length` 可靠
+/// ——列表接口有时省略 `meta_pages`，页数却仍然是准的。
+///
+/// [mangaLabel] 由调用方从 l10n 取（中文"漫画"／英文 "Manga"），
+/// 这样这个函数保持纯函数，测试里不用搭一整套本地化。
+String? illustCardBadgeLabel(Illusts illusts, {required String mangaLabel}) {
+  final pages = illusts.pageCount > 0
+      ? illusts.pageCount
+      : illusts.metaPages.length;
+  final multiPage = pages > 1;
+  if (illusts.type != 'illust') {
+    if (illusts.type == 'manga') {
+      return multiPage ? '$mangaLabel · $pages' : mangaLabel;
+    }
+    // 其它非插画类型（比如 novel）标页数没有意义，还是只标类型。
+    final type = illusts.type;
+    if (type.isEmpty) return null;
+    return type[0].toUpperCase() + type.substring(1);
+  }
+  return multiPage ? '$pages' : null;
 }
 
 class TrianglePainter extends CustomPainter {

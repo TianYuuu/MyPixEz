@@ -239,6 +239,13 @@ class IllustFilterScope {
 
   /// 首页「推荐为你」右边那排头像点进去的作者列表。
   static const String recommendUser = 'recommend_user';
+
+  /// 用户主页的「作品」标签页（画师投稿）。
+  ///
+  /// 这里按用户**共用**一份条件（不像收藏分"自己的/别人的"）：
+  /// 同一个条件在 A 的画师页和 B 的画师页语义完全一样，
+  /// 换个人还要重设一遍反而烦。
+  static const String userWorks = 'user_works';
 }
 
 String _prefKey(String scope) => 'illust_count_filter_$scope';

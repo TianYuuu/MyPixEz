@@ -21,13 +21,17 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
+import 'package:pixez/component/illust_filter_sheet.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/lighting/illust_filter.dart';
+import 'package:pixez/lighting/lighting_filter.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/page/picture/illust_store.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class WorksPage extends StatefulWidget {
@@ -55,6 +59,22 @@ class _WorksPageState extends State<WorksPage> {
   late EasyRefreshController _easyRefreshController;
   late String _workType;
 
+  /// 页数 / 观看数 / 点赞数 / 标签筛选。纯本地过滤，进页面时从上次的选择恢复。
+  late IllustFilter _filter = loadIllustFilter(IllustFilterScope.userWorks);
+
+  /// 过滤后实际要显示的列表。
+  ///
+  /// 这个页面没走 `LightingList`（排序条要在 pinned header 里），
+  /// 所以"渲染时计算、不动原始数据"得在这儿自己再做一遍：
+  /// 否则改筛选条件后已经被删掉的条目就回不来了。
+  List<IllustStore> _visibleStores = const [];
+
+  /// 筛得太狠时主动多拉几页，避免列表撑不满一屏就再也触发不了"加载更多"。
+  bool _backfilling = false;
+  int _backfillRounds = 0;
+  static const int _filterTargetCount = 12;
+  static const int _maxBackfillRounds = 4;
+
   @override
   void initState() {
     _easyRefreshController = EasyRefreshController(
@@ -77,6 +97,62 @@ class _WorksPageState extends State<WorksPage> {
   Widget build(BuildContext context) {
     return Observer(builder: (_) {
       return _buildContent(context);
+    });
+  }
+
+  /// 按当前筛选条件算出可见列表。
+  List<IllustStore> _computeVisible() {
+    final all = _store.iStores;
+    if (_filter.isAny) return all.toList(growable: false);
+    return all
+        .where((e) => e.illusts != null && _filter.matches(e.illusts!))
+        .toList(growable: false);
+  }
+
+  /// 过滤后条目太少时，继续拉取更多投稿直到够一屏或到达上限。
+  Future<void> _backfillForFilter() async {
+    if (_backfilling) return;
+    if (_filter.isAny) return;
+    if (!shouldFetchMoreForFilter(
+      visibleCount: _visibleStores.length,
+      targetCount: _filterTargetCount,
+      nextUrl: _store.nextUrl,
+      roundsDone: _backfillRounds,
+      maxRounds: _maxBackfillRounds,
+    )) {
+      return;
+    }
+    _backfilling = true;
+    try {
+      while (mounted &&
+          shouldFetchMoreForFilter(
+            visibleCount: _visibleStores.length,
+            targetCount: _filterTargetCount,
+            nextUrl: _store.nextUrl,
+            roundsDone: _backfillRounds,
+            maxRounds: _maxBackfillRounds,
+          )) {
+        final before = _store.iStores.length;
+        _backfillRounds++;
+        await _store.fetchNext();
+        if (!mounted) return;
+        _visibleStores = _computeVisible();
+        // 没有拿到新数据就收手，避免空转。
+        if (_store.iStores.length == before) break;
+      }
+    } finally {
+      _backfilling = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// 延后一帧再补足，避免在 build 期间触发网络请求与 setState。
+  void _scheduleBackfill() {
+    if (_filter.isAny) return;
+    if (_visibleStores.length >= _filterTargetCount) return;
+    if (_backfillRounds >= _maxBackfillRounds) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _backfillForFilter();
     });
   }
 
@@ -143,6 +219,12 @@ class _WorksPageState extends State<WorksPage> {
                 ),
                 childBuilder: (context, phy) {
                   return Observer(builder: (_) {
+                    // 筛选是渲染时计算的：原始 iStores 不动，
+                    // 这样改条件能让之前被隐藏的投稿重新出现。
+                    _store.iStores.removeWhere(
+                        (element) => element.illusts!.hateByUser(ai: false));
+                    _visibleStores = _computeVisible();
+                    _scheduleBackfill();
                     return CustomScrollView(
                       physics: phy,
                       key: PageStorageKey<String>(widget.portal),
@@ -156,8 +238,28 @@ class _WorksPageState extends State<WorksPage> {
                         SliverPersistentHeader(
                             delegate: SliverChipDelegate(
                                 Container(
-                                  child: Center(
-                                    child: _buildSortChip(),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      _buildSortChip(),
+                                      // 筛选按钮靠右，排序条保持居中。
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                              right: 4.0),
+                                          child: IllustFilterButton(
+                                            scope: IllustFilterScope.userWorks,
+                                            filter: _filter,
+                                            onChanged: (filter) => setState(() {
+                                              _filter = filter;
+                                              // 换了条件就重新给补足逻辑一次机会。
+                                              _backfillRounds = 0;
+                                            }),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 height: 52),
@@ -171,10 +273,7 @@ class _WorksPageState extends State<WorksPage> {
                               ),
                             ),
                           ),
-                        SliverWaterfallFlow(
-                          gridDelegate: _buildGridDelegate(),
-                          delegate: _buildSliverChildBuilderDelegate(context),
-                        ),
+                        _buildSliverContent(context),
                         const FooterLocator.sliver(),
                       ],
                     );
@@ -200,17 +299,63 @@ class _WorksPageState extends State<WorksPage> {
     );
   }
 
+  /// 列表主体。有数据但被筛光时给提示 + 手动入口——
+  /// 空白列表滚不动，会卡住"加载更多"。
+  Widget _buildSliverContent(BuildContext context) {
+    if (_visibleStores.isNotEmpty) {
+      return SliverWaterfallFlow(
+        gridDelegate: _buildGridDelegate(),
+        delegate: _buildSliverChildBuilderDelegate(context),
+      );
+    }
+    if (_store.iStores.isNotEmpty) {
+      return SliverToBoxAdapter(child: _buildFilteredEmpty(context));
+    }
+    return SliverToBoxAdapter(child: Container(height: 30));
+  }
+
+  Widget _buildFilteredEmpty(BuildContext context) {
+    return Container(
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              I18n.of(context).filter_no_result,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          TextButton(
+            onPressed: _backfilling
+                ? null
+                : () {
+                    _backfillRounds = 0;
+                    _backfillForFilter();
+                  },
+            child: Text(
+              _backfilling
+                  ? I18n.of(context).footer_loading
+                  : I18n.of(context).load_more,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
       BuildContext context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
-        store: _store.iStores[index],
-        iStores: _store.iStores,
+        store: _visibleStores[index],
+        // 点开后的上一张/下一张也只在筛选结果里走，不会跳到被筛掉的投稿。
+        iStores: _visibleStores,
       );
-    }, childCount: _store.iStores.length);
+    }, childCount: _visibleStores.length);
   }
 
   int _buildSliderValue() {
@@ -232,6 +377,8 @@ class _WorksPageState extends State<WorksPage> {
         final type = index == 0 ? 'illust' : 'manga';
         setState(() {
           _workType = type;
+          // 换了一类投稿，补足轮数重新算，否则切过去发现筛空了却不再补。
+          _backfillRounds = 0;
         });
         widget.onWorkTypeChange(_workType);
         _store.source = ApiForceSource(
@@ -350,6 +497,9 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(SliverChipDelegate oldDelegate) {
-    return false;
+    // 以前恒为 false：这个 header 里的排序条自己管状态，不需要重建。
+    // 但现在里面还放了筛选按钮，它的角标要跟着 `_filter` 变，
+    // 返回 false 会让外层 setState 传下来的新 child 被丢掉（角标不刷新）。
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }

@@ -81,6 +81,34 @@ GPL-3.0 发布。
 是否已关注 + 几张预览作品）。粉丝数在 `/v1/user/follow/detail` 的
 `follow_detail.followers` 里，每个作者都要单独请求一次，一页二三十个就是一二十次请求。
 
+### 用户主页「作品」标签页
+
+| 功能 | 说明 |
+| --- | --- |
+| 标签 / 页数 / 观看数 / 点赞数筛选 | 按钮在「插画 / 漫画」分段条右侧，弹窗和其它页面完全共用 |
+| 条件记忆 | `IllustFilterScope.userWorks`，**所有作者共用一份**（换个人不用重设） |
+| 切「插画 / 漫画」 | 补足轮数归零，重新判断要不要多拉几页；条件本身不变 |
+
+同样按"渲染时计算、不动 `iStores`"来做，并复用 `shouldFetchMoreForFilter` 自动补足；
+筛空时给「当前筛选条件下暂时没有结果 + 加载更多」。点开图片后左右翻也只走筛选结果，
+不会跳到被隐藏的投稿。
+
+### 缩略图角标
+
+| 类型 | 角标 |
+| --- | --- |
+| 插画（单页） | 不标 |
+| 插画（多页） | 页数，如 `12` |
+| 漫画（多页） | 类型 + 页数，如 `漫画 · 12` |
+| 漫画（单页） | 只标类型 `漫画` |
+| AI 作品 | 另外在左边多一个 `AI` 小标（设置项可关） |
+
+原来漫画卡片只印 `type` 字段（显示成 `manga`），从外面看不出这一话有几页。
+现在改成"类型 + 页数"。页数优先读 `page_count` 而不是 `meta_pages.length`：
+列表接口有时省略 `meta_pages`，但 `page_count` 一定在，也更准。
+文案走 l10n（中文「漫画」／英文 `Manga`），规则实现在
+`illustCardBadgeLabel()` 里，`lib/fluent/` 的卡片也用同一个函数，两边不会走偏。
+
 ### 设置项
 
 `lib/store/user_setting.dart` 新增：点击分区模式/镜像/提示层、RTL、缩略图条开关、
@@ -141,6 +169,12 @@ GPL-3.0 发布。
     零请求、瞬时生效。命中任意一张即保留（和标签一样取"或"）。
     **没有作品的作者会被保留**：只写小说的作者没有插画可判断，没有证据不等于不合格。
 
+11. **角标页数读 `page_count`，不读 `meta_pages.length`。**
+    列表接口有时不返回 `meta_pages`（但 `page_count` 一定在），旧实现会让
+    多页作品漏标页数。另外 `pinned` 的 `SliverChipDelegate.shouldRebuild`
+    原来恒为 `false`，导致外层 `setState` 传下来的新 child 被丢掉——
+    里面现在放了筛选按钮，角标就刷新不了，所以改成按 child 比较。
+
 ---
 
 ## 测试
@@ -149,7 +183,7 @@ GPL-3.0 发布。
 flutter test
 ```
 
-当前 **216 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
+当前 **223 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
 
 注意：本机如果开了 `HTTP_PROXY`，`flutter test` 会连不上 `flutter_tester` 的本地
 websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
@@ -157,7 +191,8 @@ websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
 
 新增的测试文件集中在 `test/`：点击分区、缩略图条/网格、看图页画质决策、
 预加载目标、页数/数量筛选、筛选弹窗布局、详情页侧边按钮、上滑手势、
-首页筛选（`illust_filter_test` / `illust_filter_sheet_test`）。
+首页筛选（`illust_filter_test` / `illust_filter_sheet_test`）、
+缩略图角标（`illust_card_badge_test`，漫画标页数的规则）。
 
 ---
 
@@ -170,8 +205,9 @@ websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
   `lib/component/illust_filter_sheet.dart`）。
 - **修改既有文件**：`lib/page/zoom/photo_zoom_page.dart` 是重写级的（+908 行），
   冲突风险最高；其次是 `result_illust_list.dart`、`illust_lighting_page.dart`。
-  首页筛选碰到的三个页面都只加了几行（`recom_spotlight_page.dart` 多一个补足循环），
-  冲突面很小。
+  首页筛选碰到的页面都只加了几行（`recom_spotlight_page.dart` 多一个补足循环），
+  冲突面很小；`lib/page/user/works/works_page.dart` 加了约 170 行（可见列表 + 补足
+  + 头部按钮），是本轮改动最大的既有文件。
 
 建议流程：
 
