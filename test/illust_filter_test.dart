@@ -21,11 +21,12 @@ import 'package:pixez/page/search/count_filter.dart';
 import 'package:pixez/page/search/page_count_filter.dart';
 
 /// 用真实的反序列化路径造一个 [Illusts]，
-/// 顺便确认筛选读的就是 `page_count` / `total_view` / `total_bookmarks`。
+/// 顺便确认筛选读的就是 `page_count` / `total_view` / `total_bookmarks` / `tags`。
 Illusts _illust({
   int pageCount = 1,
   int totalView = 0,
   int totalBookmarks = 0,
+  List<Map<String, dynamic>> tags = const [],
 }) {
   return Illusts.fromJson({
     'id': 1,
@@ -40,7 +41,7 @@ Illusts _illust({
       'account': 'account',
       'profile_image_urls': {'medium': ''},
     },
-    'tags': <dynamic>[],
+    'tags': tags,
     'tools': <dynamic>[],
     'create_date': '2026-10-19T00:00:00+09:00',
     'page_count': pageCount,
@@ -57,6 +58,12 @@ Illusts _illust({
     'illust_ai_type': 0,
   });
 }
+
+/// pixiv 的 tag：原文 + 可选的本地化译名。
+Map<String, dynamic> _tag(String name, [String? translated]) => {
+  'name': name,
+  'translated_name': translated,
+};
 
 void main() {
   group('IllustFilter.matches', () {
@@ -124,6 +131,62 @@ void main() {
         isTrue,
       );
     });
+
+    test('标签：命中原文', () {
+      const filter = IllustFilter(tags: ['初音ミク']);
+      expect(filter.matches(_illust(tags: [_tag('初音ミク', '初音未来')])), isTrue);
+    });
+
+    test('标签：输中文译名也能命中', () {
+      const filter = IllustFilter(tags: ['初音未来']);
+      expect(filter.matches(_illust(tags: [_tag('初音ミク', '初音未来')])), isTrue);
+    });
+
+    test('标签：没有译名时只看原文', () {
+      const filter = IllustFilter(tags: ['初音未来']);
+      expect(filter.matches(_illust(tags: [_tag('初音ミク')])), isFalse);
+    });
+
+    test('标签：大小写不敏感', () {
+      const filter = IllustFilter(tags: ['blue archive']);
+      expect(filter.matches(_illust(tags: [_tag('Blue Archive')])), isTrue);
+    });
+
+    test('标签：包含即可，不必完全相等', () {
+      const filter = IllustFilter(tags: ['初音']);
+      expect(filter.matches(_illust(tags: [_tag('初音ミク')])), isTrue);
+    });
+
+    test('标签：多个之间是"或"', () {
+      const filter = IllustFilter(tags: ['東方Project', '初音ミク']);
+      expect(filter.matches(_illust(tags: [_tag('初音ミク')])), isTrue);
+      expect(filter.matches(_illust(tags: [_tag('東方Project')])), isTrue);
+      expect(filter.matches(_illust(tags: [_tag('原神')])), isFalse);
+    });
+
+    test('标签：作品没有任何标签时被筛掉', () {
+      const filter = IllustFilter(tags: ['初音ミク']);
+      expect(filter.matches(_illust()), isFalse);
+    });
+
+    test('标签和数量条件要同时满足', () {
+      const filter = IllustFilter(
+        tags: ['初音ミク'],
+        bookmarks: CountRange(min: 100),
+      );
+      expect(
+        filter.matches(_illust(tags: [_tag('初音ミク')], totalBookmarks: 100)),
+        isTrue,
+      );
+      expect(
+        filter.matches(_illust(tags: [_tag('初音ミク')], totalBookmarks: 99)),
+        isFalse,
+      );
+      expect(
+        filter.matches(_illust(tags: [_tag('原神')], totalBookmarks: 500)),
+        isFalse,
+      );
+    });
   });
 
   group('IllustFilter.normalized', () {
@@ -141,6 +204,20 @@ void main() {
         pages: PageCountRange(min: 10, max: 2),
       ).normalized();
       expect(filter.matches(_illust(pageCount: 50)), isTrue);
+    });
+
+    test('标签会去掉空白项和重复项', () {
+      final filter = const IllustFilter(
+        tags: [' 初音未来 ', '初音未来', '', '  ', '初音ミク'],
+      ).normalized();
+      expect(filter.tags, ['初音未来', '初音ミク']);
+    });
+
+    test('标签去重忽略大小写，但保留原始写法', () {
+      final filter = const IllustFilter(
+        tags: ['Blue Archive', 'blue archive'],
+      ).normalized();
+      expect(filter.tags, ['Blue Archive']);
     });
   });
 
@@ -162,6 +239,12 @@ void main() {
         2,
       );
     });
+
+    test('只设标签也算筛选中，且只算一项', () {
+      const filter = IllustFilter(tags: ['初音ミク', '東方Project']);
+      expect(filter.isAny, isFalse);
+      expect(filter.activeCount, 1);
+    });
   });
 
   group('存取', () {
@@ -170,8 +253,16 @@ void main() {
         pages: PageCountRange(min: 2, max: 10),
         views: CountRange(min: 1000),
         bookmarks: CountRange(max: 500),
+        tags: ['初音未来', 'Blue Archive'],
       );
       expect(IllustFilter.decode(filter.encode()), filter);
+    });
+
+    test('只有标签也能存下来', () {
+      const filter = IllustFilter(tags: ['初音ミク']);
+      final decoded = IllustFilter.decode(filter.encode());
+      expect(decoded.tags, ['初音ミク']);
+      expect(decoded.isAny, isFalse);
     });
 
     test('没存过就是不限', () {
@@ -183,10 +274,20 @@ void main() {
       expect(IllustFilter.decode('not json'), IllustFilter.any);
       expect(IllustFilter.decode('{"a":1}'), IllustFilter.any);
       expect(IllustFilter.decode('[1,2,3]'), IllustFilter.any);
+      // 键在但值坏掉
+      expect(IllustFilter.decode('{"pages":"x","tags":42}'), IllustFilter.any);
+    });
+
+    test('老格式（六个数字的数组）仍然读得出来', () {
+      final filter = IllustFilter.decode('[10,2,0,0,0,0]');
+      expect(filter.pages, const PageCountRange(min: 10, max: 0));
+      expect(filter.tags, isEmpty);
     });
 
     test('存的值里上下界写反也能正常解析', () {
-      final filter = IllustFilter.decode('[10,2,0,0,0,0]');
+      final filter = IllustFilter.decode(
+        '{"pages":[10,2],"views":[0,0],"bookmarks":[0,0],"tags":[]}',
+      );
       expect(filter.pages, const PageCountRange(min: 10, max: 0));
     });
   });

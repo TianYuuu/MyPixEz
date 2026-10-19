@@ -70,6 +70,16 @@ void main() {
     expect(find.text('—'), findsNWidgets(3));
   });
 
+  testWidgets('标签一栏在最上面', (tester) async {
+    await _pumpHost(tester, onResult: (_) {});
+    expect(find.text('标签'), findsOneWidget);
+    expect(find.byKey(tagInputKey), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('标签')).dy,
+      lessThan(tester.getTopLeft(find.text('页数')).dy),
+    );
+  });
+
   testWidgets('已有的筛选值会回填', (tester) async {
     await _pumpHost(
       tester,
@@ -173,6 +183,102 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('应用'), findsOneWidget);
     expect(find.text('清空'), findsOneWidget);
+  });
+
+  group('标签', () {
+    testWidgets('输入后回车变成 chip', (tester) async {
+      await _pumpHost(tester, onResult: (_) {});
+
+      await tester.enterText(find.byKey(tagInputKey), '初音未来');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(InputChip, '初音未来'), findsOneWidget);
+      // 输入框被清空，方便接着输下一个
+      expect(
+        tester.widget<TextField>(find.byKey(tagInputKey)).controller!.text,
+        isEmpty,
+      );
+    });
+
+    testWidgets('点加号也能加', (tester) async {
+      await _pumpHost(tester, onResult: (_) {});
+
+      await tester.enterText(find.byKey(tagInputKey), '東方Project');
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(InputChip, '東方Project'), findsOneWidget);
+    });
+
+    testWidgets('重复的标签只留一个（忽略大小写和空格）', (tester) async {
+      await _pumpHost(tester, onResult: (_) {});
+
+      for (final word in ['Blue Archive', 'blue archive', '  Blue Archive ']) {
+        await tester.enterText(find.byKey(tagInputKey), word);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(InputChip), findsOneWidget);
+    });
+
+    testWidgets('标签会通过"应用"交出去', (tester) async {
+      IllustFilter? result;
+      await _pumpHost(tester, onResult: (r) => result = r);
+
+      await tester.enterText(find.byKey(tagInputKey), '初音未来');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(tagInputKey), '初音ミク');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+
+      expect(result?.tags, ['初音未来', '初音ミク']);
+    });
+
+    testWidgets('打完字没按回车直接点"应用"也不会丢', (tester) async {
+      IllustFilter? result;
+      await _pumpHost(tester, onResult: (r) => result = r);
+
+      await tester.enterText(find.byKey(tagInputKey), '初音未来');
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+
+      expect(result?.tags, ['初音未来']);
+    });
+
+    testWidgets('已存的标签回填成 chip', (tester) async {
+      await _pumpHost(
+        tester,
+        initial: const IllustFilter(tags: ['初音ミク', 'Blue Archive']),
+        onResult: (_) {},
+      );
+
+      expect(find.widgetWithText(InputChip, '初音ミク'), findsOneWidget);
+      expect(find.widgetWithText(InputChip, 'Blue Archive'), findsOneWidget);
+    });
+
+    testWidgets('"清空"把标签也清掉', (tester) async {
+      IllustFilter? result;
+      await _pumpHost(
+        tester,
+        initial: const IllustFilter(tags: ['初音ミク']),
+        onResult: (r) => result = r,
+      );
+      expect(find.byType(InputChip), findsOneWidget);
+
+      await tester.tap(find.text('清空'));
+      await tester.pumpAndSettle();
+      expect(find.byType(InputChip), findsNothing);
+
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+      expect(result, IllustFilter.any);
+    });
   });
 
   group('列表角上的筛选按钮', () {
