@@ -100,6 +100,20 @@ class IllustFilter {
     return false;
   }
 
+  /// 用"他的作品里有一张满足条件"来判断一个作者。
+  ///
+  /// 推荐作者（`/v1/user/recommended`）只给几张近期作品，没有粉丝数，
+  /// 所以筛作者只能拿这些作品当证据。命中任意一张就算留下——
+  /// 和标签筛选一样取"或"，理由也一样：条件取"且"会把列表筛空。
+  ///
+  /// 没有任何作品（比如只写小说的作者）时**保留**：没有证据不等于不合格，
+  /// 无端把人藏起来更让人困惑。
+  bool matchesAnyIllust(List<Illusts> illusts) {
+    if (isAny) return true;
+    if (illusts.isEmpty) return true;
+    return illusts.any(matches);
+  }
+
   /// 上下界写反的项按"不限"处理，避免出现筛不出任何东西的死区间；
   /// 标签顺手去空、去重（忽略大小写）。
   IllustFilter normalized() => IllustFilter(
@@ -222,6 +236,9 @@ class IllustFilterScope {
   static const String recommend = 'recommend';
   static const String newIllust = 'new_illust';
   static const String bookmark = 'bookmark';
+
+  /// 首页「推荐为你」右边那排头像点进去的作者列表。
+  static const String recommendUser = 'recommend_user';
 }
 
 String _prefKey(String scope) => 'illust_count_filter_$scope';

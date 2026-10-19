@@ -189,6 +189,57 @@ void main() {
     });
   });
 
+  group('IllustFilter.matchesAnyIllust（筛作者用）', () {
+    const filter = IllustFilter(
+      pages: PageCountRange(min: 2),
+      bookmarks: CountRange(min: 100),
+    );
+
+    test('近期作品里有一张满足就留下', () {
+      final illusts = [
+        _illust(pageCount: 1, totalBookmarks: 0), // 这张不合格
+        _illust(pageCount: 3, totalBookmarks: 500), // 这张合格
+      ];
+      expect(filter.matchesAnyIllust(illusts), isTrue);
+    });
+
+    test('一张都不合格就剔除', () {
+      final illusts = [
+        _illust(pageCount: 1, totalBookmarks: 0),
+        _illust(pageCount: 1, totalBookmarks: 99),
+        _illust(pageCount: 1, totalBookmarks: 1000), // 点赞够但页数不够
+      ];
+      expect(filter.matchesAnyIllust(illusts), isFalse);
+    });
+
+    test('没有作品（比如只写小说的作者）时保留', () {
+      expect(filter.matchesAnyIllust(const []), isTrue);
+    });
+
+    test('条件不限时全都保留', () {
+      expect(IllustFilter.any.matchesAnyIllust(const []), isTrue);
+      expect(
+        IllustFilter.any.matchesAnyIllust([_illust(pageCount: 1)]),
+        isTrue,
+      );
+    });
+
+    test('标签条件对作者同样生效', () {
+      const tagFilter = IllustFilter(tags: ['初音ミク']);
+      expect(
+        tagFilter.matchesAnyIllust([
+          _illust(tags: [_tag('原神')]),
+          _illust(tags: [_tag('初音ミク', '初音未来')]),
+        ]),
+        isTrue,
+      );
+      expect(
+        tagFilter.matchesAnyIllust([_illust(tags: [_tag('原神')])]),
+        isFalse,
+      );
+    });
+  });
+
   group('IllustFilter.normalized', () {
     test('上下界写反的那一项按不限处理', () {
       final filter = const IllustFilter(
