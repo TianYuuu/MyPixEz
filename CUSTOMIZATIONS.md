@@ -99,14 +99,15 @@ GPL-3.0 发布。
 | --- | --- |
 | 插画（单页） | 不标 |
 | 插画（多页） | 页数，如 `12` |
-| 漫画（多页） | 类型 + 页数，如 `漫画 · 12` |
-| 漫画（单页） | 只标类型 `漫画` |
+| 漫画（单页） | 页数 `1` |
+| 漫画（多页） | 页数，如 `12`（**不标"漫画"字样**） |
 | AI 作品 | 另外在左边多一个 `AI` 小标（设置项可关） |
 
-原来漫画卡片只印 `type` 字段（显示成 `manga`），从外面看不出这一话有几页。
-现在改成"类型 + 页数"。页数优先读 `page_count` 而不是 `meta_pages.length`：
-列表接口有时省略 `meta_pages`，但 `page_count` 一定在，也更准。
-文案走 l10n（中文「漫画」／英文 `Manga`），规则实现在
+原来漫画卡片印的是 `type` 字段（显示成 `manga`），从外面看不出这一话有几页。
+现在漫画**只标页数**，单页也标 `1`——和"看漫画先看有几页"的习惯一致，
+也省掉一个多余的标签。插画保持原样（单页不标，标个 `1` 只是噪音）。
+页数优先读 `page_count` 而不是 `meta_pages.length`：列表接口有时省略
+`meta_pages`，但 `page_count` 一定在，也更准。规则实现在
 `illustCardBadgeLabel()` 里，`lib/fluent/` 的卡片也用同一个函数，两边不会走偏。
 
 ### 设置项
@@ -171,7 +172,8 @@ GPL-3.0 发布。
 
 11. **角标页数读 `page_count`，不读 `meta_pages.length`。**
     列表接口有时不返回 `meta_pages`（但 `page_count` 一定在），旧实现会让
-    多页作品漏标页数。另外 `pinned` 的 `SliverChipDelegate.shouldRebuild`
+    多页作品漏标页数。漫画一律标页数（单页标 `1`），插画仍然单页不标。
+    另外 `pinned` 的 `SliverChipDelegate.shouldRebuild`
     原来恒为 `false`，导致外层 `setState` 传下来的新 child 被丢掉——
     里面现在放了筛选按钮，角标就刷新不了，所以改成按 child 比较。
 
@@ -183,7 +185,7 @@ GPL-3.0 发布。
 flutter test
 ```
 
-当前 **223 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
+当前 **224 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
 
 注意：本机如果开了 `HTTP_PROXY`，`flutter test` 会连不上 `flutter_tester` 的本地
 websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。

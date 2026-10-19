@@ -385,10 +385,7 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildVisibility() {
-    final label = illustCardBadgeLabel(
-      store.illusts!,
-      mangaLabel: I18n.of(context).manga,
-    );
+    final label = illustCardBadgeLabel(store.illusts!);
     return Visibility(
       visible: label != null,
       child: Align(

@@ -66,8 +66,7 @@ Illusts _illust({
   });
 }
 
-String? _label(Illusts illusts) =>
-    illustCardBadgeLabel(illusts, mangaLabel: '漫画');
+String? _label(Illusts illusts) => illustCardBadgeLabel(illusts);
 
 void main() {
   group('缩略图角标', () {
@@ -85,19 +84,20 @@ void main() {
       expect(_label(_illust(pageCount: 4, metaPages: 0)), '4');
     });
 
-    test('漫画标类型 + 页数', () {
-      expect(_label(_illust(type: 'manga', pageCount: 12)), '漫画 · 12');
+    test('漫画只标页数，不带"Manga"之类的指示', () {
+      expect(_label(_illust(type: 'manga', pageCount: 12)), '12');
     });
 
-    test('单页漫画只标类型，不标 1', () {
-      expect(_label(_illust(type: 'manga', pageCount: 1)), '漫画');
+    test('单页漫画也标 1（漫画就是看有几页）', () {
+      expect(_label(_illust(type: 'manga', pageCount: 1)), '1');
     });
 
     test('漫画的 meta_pages 与 page_count 不一致时以 page_count 为准', () {
-      expect(
-        _label(_illust(type: 'manga', pageCount: 9, metaPages: 2)),
-        '漫画 · 9',
-      );
+      expect(_label(_illust(type: 'manga', pageCount: 9, metaPages: 2)), '9');
+    });
+
+    test('漫画拿不到页数时不标，避免出现 "0"', () {
+      expect(_label(_illust(type: 'manga', pageCount: 0, metaPages: 0)), isNull);
     });
 
     test('动了画的页数是 1，跟插画一样不标', () {
