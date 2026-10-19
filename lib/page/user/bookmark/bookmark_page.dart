@@ -21,10 +21,12 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
+import 'package:pixez/component/illust_filter_sheet.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/lighting/illust_filter.dart';
 import 'package:pixez/lighting/lighting_page.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
@@ -55,6 +57,9 @@ class _BookmarkPageState extends State<BookmarkPage> {
   late ScrollController _scrollController;
   late StreamSubscription<String> subscription;
   String? currentTag;
+
+  /// 页数 / 观看数 / 点赞数筛选。纯本地过滤。
+  late IllustFilter _filter = loadIllustFilter(IllustFilterScope.bookmark);
 
   @override
   void initState() {
@@ -89,8 +94,22 @@ class _BookmarkPageState extends State<BookmarkPage> {
               scrollController: _scrollController,
               isNested: widget.isNested,
               header: Container(height: 45),
+              filter: (illust) => _filter.matches(illust),
             ),
             buildTopChip(context),
+            // 筛选按钮靠右上角。只有自己的收藏页顶部留了 45px 的空白，
+            // 别人的收藏页没有，硬塞会盖住第一张图，所以不放。
+            Positioned(
+              top: 0,
+              right: 4,
+              child: IllustFilterButton(
+                scope: IllustFilterScope.bookmark,
+                filter: _filter,
+                onChanged: (filter) => setState(() {
+                  _filter = filter;
+                }),
+              ),
+            ),
           ],
         );
       }
@@ -98,6 +117,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
         isNested: widget.isNested,
         scrollController: _scrollController,
         source: futureGet,
+        filter: (illust) => _filter.matches(illust),
       );
     } else {
       return Container();

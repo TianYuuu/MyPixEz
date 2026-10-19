@@ -17,8 +17,10 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:pixez/component/illust_filter_sheet.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/lighting/illust_filter.dart';
 import 'package:pixez/lighting/lighting_page.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
@@ -37,6 +39,9 @@ class _NewIllustPageState extends State<NewIllustPage> {
   late ApiForceSource futureGet;
   late StreamSubscription<String> subscription;
   late ScrollController _scrollController;
+
+  /// 页数 / 观看数 / 点赞数筛选。纯本地过滤，进页面时从上次的选择恢复。
+  late IllustFilter _filter = loadIllustFilter(IllustFilterScope.newIllust);
 
   @override
   void initState() {
@@ -70,6 +75,7 @@ class _NewIllustPageState extends State<NewIllustPage> {
             height: 45.0,
           ),
           portal: "new",
+          filter: (illust) => _filter.matches(illust),
         ),
         Align(
           alignment: Alignment.topCenter,
@@ -105,7 +111,19 @@ class _NewIllustPageState extends State<NewIllustPage> {
               ],
             ),
           ),
-        )
+        ),
+        // 筛选按钮靠右上角，和中间的"全部 / 公开 / 私密"分段按钮错开。
+        Positioned(
+          top: 0,
+          right: 4,
+          child: IllustFilterButton(
+            scope: IllustFilterScope.newIllust,
+            filter: _filter,
+            onChanged: (filter) => setState(() {
+              _filter = filter;
+            }),
+          ),
+        ),
       ],
     );
   }

@@ -22,16 +22,20 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
+import 'package:pixez/component/illust_filter_sheet.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/lighting/illust_filter.dart';
+import 'package:pixez/lighting/lighting_filter.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/hello/recom/recom_user_road.dart';
 import 'package:pixez/page/hello/recom/recom_user_store.dart';
 import 'package:pixez/page/hello/recom/spotlight_store.dart';
+import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/soup/soup_page.dart';
 import 'package:pixez/page/spotlight/spotlight_page.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
@@ -51,6 +55,22 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
   late StreamSubscription<String> subscription;
   late EasyRefreshController _easyRefreshController;
   late ScrollController _scrollController;
+
+  /// 页数 / 观看数 / 点赞数筛选。纯本地过滤，进页面时从上次的选择恢复。
+  late IllustFilter _filter = loadIllustFilter(IllustFilterScope.recommend);
+
+  /// 过滤后实际要显示的列表。
+  ///
+  /// 这个页面没有走 `LightingList`（它自带聚光灯、画师推荐这些头部），
+  /// 所以"渲染时计算、不动原始数据"这件事得在这儿自己再做一遍，
+  /// 否则改筛选条件后已经被删掉的条目就回不来了。
+  List<IllustStore> _visibleStores = const [];
+
+  /// 筛得太狠时主动多拉几页，避免列表撑不满一屏就再也触发不了"加载更多"。
+  bool _backfilling = false;
+  int _backfillRounds = 0;
+  static const int _filterTargetCount = 12;
+  static const int _maxBackfillRounds = 4;
 
   @override
   void dispose() {
@@ -83,6 +103,62 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     await spotlightStore.fetch();
     _lightingStore.fetch();
     _recomUserStore.fetch();
+  }
+
+  /// 按当前筛选条件算出可见列表。
+  List<IllustStore> _computeVisible() {
+    final all = _lightingStore.iStores;
+    if (_filter.isAny) return all.toList(growable: false);
+    return all
+        .where((e) => e.illusts != null && _filter.matches(e.illusts!))
+        .toList(growable: false);
+  }
+
+  /// 过滤后条目太少时，继续拉取更多推荐直到够一屏或到达上限。
+  Future<void> _backfillForFilter() async {
+    if (_backfilling) return;
+    if (_filter.isAny) return;
+    if (!shouldFetchMoreForFilter(
+      visibleCount: _visibleStores.length,
+      targetCount: _filterTargetCount,
+      nextUrl: _lightingStore.nextUrl,
+      roundsDone: _backfillRounds,
+      maxRounds: _maxBackfillRounds,
+    )) {
+      return;
+    }
+    _backfilling = true;
+    try {
+      while (mounted &&
+          shouldFetchMoreForFilter(
+            visibleCount: _visibleStores.length,
+            targetCount: _filterTargetCount,
+            nextUrl: _lightingStore.nextUrl,
+            roundsDone: _backfillRounds,
+            maxRounds: _maxBackfillRounds,
+          )) {
+        final before = _lightingStore.iStores.length;
+        _backfillRounds++;
+        await _lightingStore.fetchNext();
+        if (!mounted) return;
+        _visibleStores = _computeVisible();
+        // 没有拿到新数据就收手，避免空转。
+        if (_lightingStore.iStores.length == before) break;
+      }
+    } finally {
+      _backfilling = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// 延后一帧再补足，避免在 build 期间触发网络请求与 setState。
+  void _scheduleBackfill() {
+    if (_filter.isAny) return;
+    if (_visibleStores.length >= _filterTargetCount) return;
+    if (_backfillRounds >= _maxBackfillRounds) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _backfillForFilter();
+    });
   }
 
   @override
@@ -131,6 +207,8 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
   Widget _buildWaterFall(BuildContext context, ScrollPhysics physics) {
     _lightingStore.iStores
         .removeWhere((element) => element.illusts!.hateByUser());
+    _visibleStores = _computeVisible();
+    _scheduleBackfill();
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification notification) {
         ScrollMetrics metrics = notification.metrics;
@@ -185,7 +263,7 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           ? userSetting.crossCount
           : userSetting.hCrossCount;
     }
-    return _lightingStore.iStores.isNotEmpty
+    return _visibleStores.isNotEmpty
         ? SliverWaterfallFlow(
             gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
               crossAxisCount: count,
@@ -194,10 +272,10 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
                 SliverChildBuilderDelegate((BuildContext context, int index) {
               return IllustCard(
                 lightingStore: _lightingStore,
-                store: _lightingStore.iStores[index],
-                iStores: _lightingStore.iStores,
+                store: _visibleStores[index],
+                iStores: _visibleStores,
               );
-            }, childCount: _lightingStore.iStores.length),
+            }, childCount: _visibleStores.length),
           )
         : (_lightingStore.errorMessage?.isNotEmpty == true
             ? SliverToBoxAdapter(
@@ -232,11 +310,47 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
                   ),
                 ),
               )
-            : SliverToBoxAdapter(
-                child: Container(
-                  height: 30,
-                ),
-              ));
+            : _lightingStore.iStores.isNotEmpty
+                // 有数据但被筛光了。空白列表滚不动，会卡住"加载更多"，
+                // 所以这里给个提示 + 手动入口。
+                ? SliverToBoxAdapter(child: _buildFilteredEmpty(context))
+                : SliverToBoxAdapter(
+                    child: Container(
+                      height: 30,
+                    ),
+                  ));
+  }
+
+  Widget _buildFilteredEmpty(BuildContext context) {
+    return Container(
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              I18n.of(context).filter_no_result,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          TextButton(
+            onPressed: _backfilling
+                ? null
+                : () {
+                    _backfillRounds = 0;
+                    _backfillForFilter();
+                  },
+            child: Text(
+              _backfilling
+                  ? I18n.of(context).footer_loading
+                  : I18n.of(context).load_more,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buidTagSpotlightRow(BuildContext context) {
@@ -383,6 +497,16 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
             ),
           ),
           padding: EdgeInsets.only(left: 20.0),
+        ),
+        // 筛选按钮挨着"推荐为你"，管的就是下面这排瀑布流。
+        IllustFilterButton(
+          scope: IllustFilterScope.recommend,
+          filter: _filter,
+          onChanged: (filter) => setState(() {
+            _filter = filter;
+            // 换了条件就重新给补足逻辑一次机会。
+            _backfillRounds = 0;
+          }),
         ),
         Expanded(child: RecomUserRoad())
       ],
