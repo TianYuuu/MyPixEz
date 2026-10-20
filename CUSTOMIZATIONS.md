@@ -113,6 +113,28 @@ GPL-3.0 发布。
 `/v2/search/autocomplete` 接口；弹窗里的放大镜跳的是**小说搜索页**
 （`NovelResultPage`）。
 
+### 小说导出：默认位置 / 系列合并
+
+| 改动 | 行为 |
+| --- | --- |
+| 设置 → 小说导出 | 选一个默认文件夹（Android SAF 授权，重启后仍有效） |
+| 导出本篇 | 有默认文件夹就直接写入，不再弹“另存为” |
+| 导出整个系列 | 作品属于系列时，导出菜单多一个选项：按话顺序抓完整个系列，合并成一个 txt |
+
+细节：
+
+- 默认文件夹用 `ACTION_OPEN_DOCUMENT_TREE` 授权（`Safer.kt` 的 `pickDirectory` /
+  `writeToDirectory`），不存绝对路径——targetSdk 37 下直接往 `/storage/emulated/0`
+  写会被 scoped storage 拦。
+- 同名文件覆盖，不会产生 `xxx (1).txt`。
+- 默认文件夹失效（被删、权限被回收）时清掉设置并自动回退到“另存为”，
+  导出结果里会提示。
+- 系列抓取走 `/v2/novel/series` + `next_url` 分页，正文逐话取 `/webview/v2/novel`，
+  顺序拉取、每话间隔 250ms，带进度和取消；读不出来的话跳过并在结果里报数量。
+- 话序默认用接口顺序，但每话正文自带 `seriesNavigation` 的 prev/next，
+  会先用这条链还原一次（`orderSeriesChapters`），链不完整才退回接口顺序。
+- 只导出文字：txt 里放章节标题 + 正文，不含图片（小说正文里的插画无法进纯文本）。
+
 ### 缩略图角标
 
 | 类型 | 角标 |
@@ -197,6 +219,12 @@ GPL-3.0 发布。
     原来恒为 `false`，导致外层 `setState` 传下来的新 child 被丢掉——
     里面现在放了筛选按钮，角标就刷新不了，所以改成按 child 比较。
 
+12. **默认导出位置用 SAF 目录授权，不存绝对路径。**
+    targetSdk 37 下 `/storage/emulated/0/Download` 这种路径对普通 App 不可写
+    （`requestLegacyExternalStorage` 在 Android 11+ 已失效）。存 SAF tree URI
+    并 `takePersistableUriPermission` 才能跨重启写入，代价是要多两个原生方法；
+    失效时回退到系统“另存为”，不静默失败。
+
 ---
 
 ## 测试
@@ -205,7 +233,7 @@ GPL-3.0 发布。
 flutter test
 ```
 
-当前 **244 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
+当前 **254 项全过**，`flutter analyze` 维持在基线（19 条既有告警，无新增）。
 
 注意：本机如果开了 `HTTP_PROXY`，`flutter test` 会连不上 `flutter_tester` 的本地
 websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
@@ -215,7 +243,8 @@ websocket 而全军覆没（报 `Invalid WebSocket upgrade request`）。
 预加载目标、页数/数量筛选、筛选弹窗布局、详情页侧边按钮、上滑手势、
 首页筛选（`illust_filter_test` / `illust_filter_sheet_test`）、
 缩略图角标（`illust_card_badge_test`，漫画标页数的规则）、
-小说筛选（`novel_filter_test` / `novel_filter_sheet_test`）。
+小说筛选（`novel_filter_test` / `novel_filter_sheet_test`）、
+小说导出合并（`novel_export_format_test`：文件名、合并格式、系列话序）。
 
 ---
 

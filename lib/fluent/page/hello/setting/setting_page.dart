@@ -14,9 +14,12 @@
  *
  */
 
+import 'dart:io';
+
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:material_ui/material_ui.dart' as material;
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/lprinter.dart';
@@ -42,6 +45,7 @@ import 'package:pixez/models/account.dart';
 import 'package:pixez/models/board_info.dart';
 import 'package:pixez/page/novel/history/novel_history_page.dart';
 import 'package:pixez/page/novel/novel_rail.dart';
+import 'package:pixez/page/novel/export/novel_export_setting_page.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({Key? key}) : super(key: key);
@@ -262,6 +266,17 @@ class _SettingPageState extends State<SettingPage> {
                 icon: Icon(FluentIcons.plain_text),
               ),
             ),
+            if (Platform.isAndroid)
+              ListTile(
+                leading: Icon(FluentIcons.folder),
+                title: Text(I18n.of(context).novel_export_settings),
+                trailing: Icon(FluentIcons.chevron_right),
+                onPressed: () => Navigator.of(context).push(
+                  material.MaterialPageRoute(
+                    builder: (context) => NovelExportSettingPage(),
+                  ),
+                ),
+              ),
             ListTile(
               leading: Icon(FluentIcons.message),
               title: Text(I18n.of(context).about),

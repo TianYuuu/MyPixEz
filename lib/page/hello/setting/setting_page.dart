@@ -40,6 +40,7 @@ import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/login/login_page.dart';
 import 'package:pixez/page/novel/history/novel_history_page.dart';
 import 'package:pixez/page/novel/novel_rail.dart';
+import 'package:pixez/page/novel/export/novel_export_setting_page.dart';
 import 'package:pixez/page/shield/shield_page.dart';
 import 'package:pixez/page/task/job_page.dart';
 import 'package:pixez/page/theme/theme_page.dart';
@@ -263,6 +264,15 @@ class _SettingPageState extends State<SettingPage> {
                           .pushReplacement(MaterialPageRoute(
                               builder: (context) => NovelRail())),
                     ),
+                    if (Platform.isAndroid)
+                      ListTile(
+                        leading: Icon(Icons.folder_special),
+                        title: Text(I18n.of(context).novel_export_settings),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    NovelExportSettingPage())),
+                      ),
                     ListTile(
                       leading: Icon(Icons.message),
                       title: Text(I18n.of(context).about),
